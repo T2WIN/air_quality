@@ -75,7 +75,7 @@ gcloud artifacts repositories create "$REPO_NAME" \
 
 ---
 
-## 3 – BigQuery datasets
+## 3 – BigQuery datasets and views
 
 ```bash
 bq --location="$BQ_LOCATION" mk --dataset "${PROJECT_ID}:${BQ_RAW_DATASET}"     || true
@@ -200,21 +200,6 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role="roles/bigquery.jobUser"
 ```
 
-### 10b – Scheduler → Cloud Run invocation
-
-```bash
-# Invoke the OpenAQ Cloud Run *service*
-gcloud run services add-iam-policy-binding "$OPENAQ_SERVICE_NAME" \
-  --region="$REGION" \
-  --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
-  --role="roles/run.invoker"
-
-# Execute the Weather Cloud Run *job*
-gcloud run jobs add-iam-policy-binding "$OPENMETEO_SERVICE_NAME" \
-  --region="$REGION" \
-  --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
-  --role="roles/run.jobsExecutor"
-```
 
 ### 10c – Token minting
 
@@ -237,6 +222,11 @@ able to act as the job's runtime SA:
 gcloud iam service-accounts add-iam-policy-binding "$OPENMETEO_SERVICE_ACCOUNT_EMAIL" \
   --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
   --role="roles/iam.serviceAccountUser"
+
+
+gcloud iam service-accounts add-iam-policy-binding "$OPENAQ_SERVICE_ACCOUNT_EMAIL" \
+  --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/iam.serviceAccountUser"
 ```
 
 ---
@@ -249,12 +239,13 @@ export OPENAQ_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/openaq-
 
 gcloud builds submit ingestion/openaq_poller --tag "$OPENAQ_IMAGE"
 
-gcloud run deploy "$OPENAQ_SERVICE_NAME" \
+gcloud run jobs create "$OPENAQ_JOB_NAME" \
   --image="$OPENAQ_IMAGE" \
   --region="$REGION" \
   --service-account="${OPENAQ_SERVICE_ACCOUNT_EMAIL}" \
-  --no-allow-unauthenticated \
-  --memory=512Mi --cpu=1 --timeout=900 --max-instances=1 \
+  --tasks=1 \
+  --parallelism=1 \
+  --memory=512Mi --cpu=1 --task-timeout=1500s --max-retries=0 \
   --set-secrets="OPENAQ_API_KEY=OPENAQ_API_KEY:latest" \
   --set-env-vars="^@^BQ_LOCATION=${BQ_LOCATION}\
 @BQ_RAW_DATASET=${BQ_RAW_DATASET}\
@@ -267,11 +258,13 @@ gcloud run deploy "$OPENAQ_SERVICE_NAME" \
 @HTTP_TIMEOUT_SECONDS=${HTTP_TIMEOUT_SECONDS}\
 @ENFORCE_COMPLETE_HOURS=${ENFORCE_COMPLETE_HOURS}\
 @DEV_STATION_IDS=${DEV_STATION_IDS}\
-@MAX_SENSORS=${MAX_SENSORS}@"
-
-export OPENAQ_URL=$(gcloud run services describe "$OPENAQ_SERVICE_NAME" \
-  --region="$REGION" --format='value(status.url)')
-echo "OpenAQ service URL: $OPENAQ_URL"
+@MAX_SENSORS=${MAX_SENSORS}\
+@TARGET_POLLUTANTS=${TARGET_POLLUTANTS}\
+@OPENAQ_RATE_LIMIT_PER_MINUTE=${OPENAQ_RATE_LIMIT_PER_MINUTE}\
+@OPENAQ_RATE_LIMIT_PER_HOUR=${OPENAQ_RATE_LIMIT_PER_HOUR}\
+@MAX_HTTP_ATTEMPTS=${MAX_HTTP_ATTEMPTS}\
+@PROGRESS_LOG_EVERY=${PROGRESS_LOG_EVERY}\
+@PROGRESS_LOG_INTERVAL_SECONDS=${PROGRESS_LOG_INTERVAL_SECONDS}@"
 ```
 
 ---
@@ -283,7 +276,7 @@ export WEATHER_IMAGE="gcr.io/${PROJECT_ID}/weather-poller"
 
 gcloud builds submit ingestion/weather_poller --tag "$WEATHER_IMAGE"
 
-gcloud run jobs create "$OPENMETEO_SERVICE_NAME" \
+gcloud run jobs create "$OPENMETEO_JOB_NAME" \
   --image="$WEATHER_IMAGE" \
   --region="$REGION" \
   --service-account="${OPENMETEO_SERVICE_ACCOUNT_EMAIL}" \
@@ -303,10 +296,27 @@ same flags.
 Quick smoke test:
 
 ```bash
-gcloud run jobs execute "$OPENMETEO_SERVICE_NAME" --region="$REGION" --wait
+gcloud run jobs execute "$OPENMETEO_JOB_NAME" --region="$REGION" --wait
 ```
 
 ---
+
+### 10b – Scheduler → Cloud Run invocation
+
+```bash
+# Execute the OpenAQ Cloud Run *job*
+gcloud run jobs add-iam-policy-binding "$OPENAQ_JOB_NAME" \
+  --region="$REGION" \
+  --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/run.jobsExecutor"
+
+# Execute the Weather Cloud Run *job*
+gcloud run jobs add-iam-policy-binding "$OPENMETEO_JOB_NAME" \
+  --region="$REGION" \
+  --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/run.jobsExecutor"
+```
+
 
 ## 13 – Cloud Scheduler jobs
 
@@ -315,11 +325,13 @@ gcloud run jobs execute "$OPENMETEO_SERVICE_NAME" --region="$REGION" --wait
 ```bash
 gcloud scheduler jobs create http "$SCHEDULER_JOB_OPENAQ" \
   --location="$REGION" \
-  --schedule="5 * * * *" \
+  --schedule="5 */2 * * *" \
+  --time-zone="UTC" \
   --http-method=POST \
-  --uri="${OPENAQ_URL}/run" \
-  --oidc-service-account-email="${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
-  --oidc-token-audience="${OPENAQ_URL}" \
+  --uri="https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${OPENAQ_JOB_NAME}:run" \
+  --oauth-service-account-email="${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
+  --oauth-token-scope="https://www.googleapis.com/auth/cloud-platform" \
+  --message-body="{}" \
   || true
 ```
 
@@ -331,7 +343,7 @@ gcloud scheduler jobs create http "$SCHEDULER_JOB_OPENMETEO" \
   --schedule="0 */6 * * *" \
   --time-zone="UTC" \
   --http-method=POST \
-  --uri="https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${OPENMETEO_SERVICE_NAME}:run" \
+  --uri="https://run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/${OPENMETEO_JOB_NAME}:run" \
   --oauth-service-account-email="${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
   --oauth-token-scope="https://www.googleapis.com/auth/cloud-platform" \
   --message-body="{}" \
@@ -358,7 +370,7 @@ gcloud scheduler jobs describe "$SCHEDULER_JOB_OPENMETEO" --location="$REGION" \
   --format="yaml(lastAttemptTime,status)"
 
 # Check weather job execution
-gcloud run jobs executions list --job="$OPENMETEO_SERVICE_NAME" \
+gcloud run jobs executions list --job="$OPENMETEO_JOB_NAME" \
   --region="$REGION" --limit=3
 
 # Spot-check BigQuery
