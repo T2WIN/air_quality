@@ -57,3 +57,5 @@ Number of sensors for french stations : 2208
 +----------------+---------------+
 
 Stations seem to report every 4h. When they report, they seem to report every hour average since the last report. So a station reported at 4pm and now reports at 8pm, for now (only quick checks), it seems like it report 5pm values, 6pm, 7pm and 8pm. Note that data on OpenAQ are harmonized to follow an exclusive time-ending standard. This means a time stamp for an hourly measurement 03:00 represents the data from 02:00 until 02:59.
+
+Many stations, that have sensors, have a lot of missing values. So we need to figure out how to build predictions based on those missing values.

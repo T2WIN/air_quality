@@ -5,9 +5,8 @@
 This runbook deploys the full ingestion layer:
 
 - BigQuery datasets, tables, and staging views
-- Pub/Sub topic
 - Secret Manager secrets
-- Cloud Run service (OpenAQ) and Cloud Run job (Weather)
+- Cloud Run Job (OpenAQ, Weather)
 - Cloud Scheduler triggers for both
 - IAM bindings (least-privilege)
 
@@ -45,6 +44,18 @@ export PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" \
   --format='value(projectNumber)')
 ```
 
+## 0a – Derive Service Account emails
+
+SA emails are derived from the active `PROJECT_ID` so the same runbook works
+against dev and production:
+
+```bash
+export OPENAQ_SERVICE_ACCOUNT_EMAIL="${OPENAQ_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+export OPENMETEO_SERVICE_ACCOUNT_EMAIL="${OPENMETEO_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+export SCHEDULER_SERVICE_ACCOUNT_EMAIL="${SCHEDULER_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+export DASHBOARD_READER_SERVICE_ACCOUNT_EMAIL="${DASHBOARD_READER_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+```
+
 ---
 
 ## 1 – Enable APIs
@@ -55,7 +66,6 @@ gcloud services enable \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
   bigquery.googleapis.com \
-  pubsub.googleapis.com \
   cloudscheduler.googleapis.com \
   iam.googleapis.com \
   secretmanager.googleapis.com
@@ -80,6 +90,8 @@ gcloud artifacts repositories create "$REPO_NAME" \
 ```bash
 bq --location="$BQ_LOCATION" mk --dataset "${PROJECT_ID}:${BQ_RAW_DATASET}"     || true
 bq --location="$BQ_LOCATION" mk --dataset "${PROJECT_ID}:${BQ_STAGING_DATASET}"  || true
+bq --location="$BQ_LOCATION" mk --dataset "${PROJECT_ID}:${BQ_ANALYTICS_DATASET}"  || true
+
 ```
 
 ---
@@ -92,6 +104,12 @@ bq query \
   --project_id="$PROJECT_ID" \
   --use_legacy_sql=false \
   < warehouse/raw/create_raw_tables.sql
+
+bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false \
+  < warehouse/raw/create_ingestion_log_table.sql
 ```
 
 ---
@@ -108,60 +126,36 @@ Create these in the Secret Manager console (or via CLI):
 
 ## 6 – Load static reference data
 
+Ask the user to create the API key and store it in Secret Manager.
+
 Reads `OPENAQ_API_KEY` from Secret Manager, writes the
 `station_sensors` lookup table to BigQuery:
 
 ```bash
+pip install google-cloud-bigquery google-cloud-secret-manager requests
 python ingestion/static/station_metadata.py
 ```
 
 ---
 
-## 7 – BigQuery staging views
-
-OpenAQ dedup view:
+## 7 – BigQuery views
 
 ```bash
-bq query \
+envsubst < warehouse/staging/create_dedup_views.sql | bq query \
   --location="$BQ_LOCATION" \
   --project_id="$PROJECT_ID" \
-  --use_legacy_sql=false \
-<<EOF
-CREATE OR REPLACE VIEW \`${PROJECT_ID}.${BQ_STAGING_DATASET}.openaq_hourly_latest\` AS
-SELECT * EXCEPT (rn)
-FROM (
-  SELECT *,
-         ROW_NUMBER() OVER (
-           PARTITION BY dedup_key
-           ORDER BY ingested_at DESC
-         ) AS rn
-  FROM \`${PROJECT_ID}.${BQ_RAW_DATASET}.${BQ_OPENAQ_HOURLY_TABLE}\`
-)
-WHERE rn = 1;
-EOF
-```
-
-Weather dedup view:
-
-```bash
-bq query \
+  --use_legacy_sql=false
+envsubst < warehouse/staging/create_ingestion_freshness_view.sql | bq query \
   --location="$BQ_LOCATION" \
-  --use_legacy_sql=false \
-  < warehouse/staging/create_weather_views.sql
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
+envsubst < warehouse/staging/create_station_freshness_view.sql | bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
 ```
 
 ---
-
-## 8 – Pub/Sub
-
-```bash
-gcloud pubsub topics create "$PUBSUB_TOPIC" || true
-
-gcloud pubsub subscriptions create "$PUBSUB_SUBSCRIPTION" \
-  --topic="$PUBSUB_TOPIC" \
-  --expiration-period=7d \
-  || true
-```
 
 ---
 
@@ -176,6 +170,11 @@ gcloud iam service-accounts create "$OPENMETEO_SERVICE_ACCOUNT_NAME" \
 
 gcloud iam service-accounts create "$SCHEDULER_SERVICE_ACCOUNT_NAME" \
   --display-name="Cloud Scheduler invoker" || true
+
+gcloud iam service-accounts create "${DASHBOARD_READER_SERVICE_ACCOUNT_NAME}" \
+  --project="${PROJECT_ID}" \
+  --display-name="Air Quality Dashboard (read-only BQ)" \
+  --description="Used by Streamlit dashboard. Read-only access to air_quality datasets."
 ```
 
 ---
@@ -184,13 +183,34 @@ gcloud iam service-accounts create "$SCHEDULER_SERVICE_ACCOUNT_NAME" \
 
 ### 10a – Runtime permissions for pollers
 
-Both pollers need `bigquery.jobUser` to run queries.
-Table-level and Pub/Sub publish permissions are granted in the console
-(dataset-level `bigquery.dataEditor` for now).
+Both pollers need three BigQuery roles:
+- `bigquery.dataViewer` – read reference tables (e.g. `station_sensors`)
+- `bigquery.dataEditor` – write data to raw tables and create ingestion log
+- `bigquery.jobUser` – run BigQuery load/export jobs
+
 The OpenAQ poller also needs access to the `OPENAQ_API_KEY` secret
-(granted in the console).
+(granted via Cloud Run Job env vars).
 
 ```bash
+# Data reading (station_sensors lookup)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${OPENAQ_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/bigquery.dataViewer"
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${OPENMETEO_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/bigquery.dataViewer"
+
+# Data writing (load to raw tables + ingestion_log)
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${OPENAQ_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/bigquery.dataEditor"
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${OPENMETEO_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/bigquery.dataEditor"
+
+# Job execution (query/load jobs)
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${OPENAQ_SERVICE_ACCOUNT_EMAIL}" \
   --role="roles/bigquery.jobUser"
@@ -200,18 +220,6 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role="roles/bigquery.jobUser"
 ```
 
-
-### 10c – Token minting
-
-Cloud Scheduler's Google-managed service agent must be allowed to
-create OIDC/OAuth tokens for the scheduler service account.
-Without this the scheduler silently fails to call its targets.
-
-```bash
-gcloud iam service-accounts add-iam-policy-binding "$SCHEDULER_SERVICE_ACCOUNT_EMAIL" \
-  --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountTokenCreator"
-```
 
 ### 10d – Act-as for Cloud Run job execution
 
@@ -229,15 +237,33 @@ gcloud iam service-accounts add-iam-policy-binding "$OPENAQ_SERVICE_ACCOUNT_EMAI
   --role="roles/iam.serviceAccountUser"
 ```
 
+### 10e – Dashboard permissions
+
+```bash
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${DASHBOARD_READER_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/bigquery.dataViewer"
+```
+
+```bash
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+  --member="serviceAccount:${DASHBOARD_READER_SERVICE_ACCOUNT_EMAIL}" \
+  --role="roles/bigquery.jobUser" \
+  --condition=None
+```
+
 ---
 
-## 11 – Build & deploy the OpenAQ poller (Cloud Run service)
+## 11 – Build pollers (Cloud Run Job)
 
 ```bash
 export IMAGE_TAG="$(date +%Y%m%d-%H%M%S)"
 export OPENAQ_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/openaq-poller:${IMAGE_TAG}"
+export WEATHER_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/weather-poller:${IMAGE_TAG}"
 
-gcloud builds submit ingestion/openaq_poller --tag "$OPENAQ_IMAGE"
+gcloud builds submit . \
+  --config=cloudbuild.yaml \
+  --substitutions="_TAG=${IMAGE_TAG},_REGION=${REGION},_REPO=${REPO_NAME}"
 
 gcloud run jobs create "$OPENAQ_JOB_NAME" \
   --image="$OPENAQ_IMAGE" \
@@ -248,33 +274,23 @@ gcloud run jobs create "$OPENAQ_JOB_NAME" \
   --memory=512Mi --cpu=1 --task-timeout=1500s --max-retries=0 \
   --set-secrets="OPENAQ_API_KEY=OPENAQ_API_KEY:latest" \
   --set-env-vars="^@^BQ_LOCATION=${BQ_LOCATION}\
+@PROJECT_ID=${PROJECT_ID}\
 @BQ_RAW_DATASET=${BQ_RAW_DATASET}\
 @BQ_STATION_SENSORS_TABLE=${BQ_STATION_SENSORS_TABLE}\
 @BQ_OPENAQ_HOURLY_TABLE=${BQ_OPENAQ_HOURLY_TABLE}\
 @OPENAQ_BASE_URL=${OPENAQ_BASE_URL}\
-@PUBSUB_TOPIC=${PUBSUB_TOPIC}\
 @LOOKBACK_HOURS=${LOOKBACK_HOURS}\
 @MAX_WORKERS=${MAX_WORKERS}\
 @HTTP_TIMEOUT_SECONDS=${HTTP_TIMEOUT_SECONDS}\
 @ENFORCE_COMPLETE_HOURS=${ENFORCE_COMPLETE_HOURS}\
 @DEV_STATION_IDS=${DEV_STATION_IDS}\
-@MAX_SENSORS=${MAX_SENSORS}\
 @TARGET_POLLUTANTS=${TARGET_POLLUTANTS}\
 @OPENAQ_RATE_LIMIT_PER_MINUTE=${OPENAQ_RATE_LIMIT_PER_MINUTE}\
 @OPENAQ_RATE_LIMIT_PER_HOUR=${OPENAQ_RATE_LIMIT_PER_HOUR}\
 @MAX_HTTP_ATTEMPTS=${MAX_HTTP_ATTEMPTS}\
 @PROGRESS_LOG_EVERY=${PROGRESS_LOG_EVERY}\
-@PROGRESS_LOG_INTERVAL_SECONDS=${PROGRESS_LOG_INTERVAL_SECONDS}@"
-```
-
----
-
-## 12 – Build & deploy the Weather poller (Cloud Run job)
-
-```bash
-export WEATHER_IMAGE="gcr.io/${PROJECT_ID}/weather-poller"
-
-gcloud builds submit ingestion/weather_poller --tag "$WEATHER_IMAGE"
+@PROGRESS_LOG_INTERVAL_SECONDS=${PROGRESS_LOG_INTERVAL_SECONDS}@" \
+  || true
 
 gcloud run jobs create "$OPENMETEO_JOB_NAME" \
   --image="$WEATHER_IMAGE" \
@@ -285,32 +301,21 @@ gcloud run jobs create "$OPENMETEO_JOB_NAME" \
 PROJECT_ID=${PROJECT_ID},\
 BQ_RAW_DATASET=${BQ_RAW_DATASET},\
 BQ_WEATHER_TABLE=${BQ_WEATHER_TABLE},\
-PUBSUB_TOPIC=${PUBSUB_TOPIC},\
 BATCH_SIZE=${BATCH_SIZE},\
-FORECAST_HOURS=${FORECAST_HOURS}"
-```
-
-To update an existing job, replace `create` with `update` using the
-same flags.
-
-Quick smoke test:
-
-```bash
-gcloud run jobs execute "$OPENMETEO_JOB_NAME" --region="$REGION" --wait
+FORECAST_HOURS=${FORECAST_HOURS}" \
+  || true
 ```
 
 ---
 
-### 10b – Scheduler → Cloud Run invocation
+## 12 – Scheduler IAM for Cloud Run Execution
 
 ```bash
-# Execute the OpenAQ Cloud Run *job*
 gcloud run jobs add-iam-policy-binding "$OPENAQ_JOB_NAME" \
   --region="$REGION" \
   --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
   --role="roles/run.jobsExecutor"
 
-# Execute the Weather Cloud Run *job*
 gcloud run jobs add-iam-policy-binding "$OPENMETEO_JOB_NAME" \
   --region="$REGION" \
   --member="serviceAccount:${SCHEDULER_SERVICE_ACCOUNT_EMAIL}" \
@@ -320,10 +325,10 @@ gcloud run jobs add-iam-policy-binding "$OPENMETEO_JOB_NAME" \
 
 ## 13 – Cloud Scheduler jobs
 
-### OpenAQ (calls the Cloud Run service via HTTP)
+### OpenAQ (calls the Cloud Run Jobs Admin API)
 
 ```bash
-gcloud scheduler jobs create http "$SCHEDULER_JOB_OPENAQ" \
+gcloud scheduler jobs update http "$SCHEDULER_JOB_OPENAQ" \
   --location="$REGION" \
   --schedule="5 */2 * * *" \
   --time-zone="UTC" \
@@ -355,6 +360,20 @@ with the same flags.
 
 ---
 
+## 13a – Scheduler token minting
+
+Cloud Scheduler's Google-managed service agent (`service-${PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com`)
+must be allowed to create OIDC/OAuth tokens for the scheduler service account.
+This step runs **after** the scheduler jobs are created so the Google-managed SA exists.
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding "$SCHEDULER_SERVICE_ACCOUNT_EMAIL" \
+  --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
+```
+
+---
+
 ## 14 – Verify end-to-end
 
 Force-trigger both schedulers and confirm rows land in BigQuery:
@@ -368,31 +387,65 @@ gcloud scheduler jobs describe "$SCHEDULER_JOB_OPENAQ"   --location="$REGION" \
   --format="yaml(lastAttemptTime,status)"
 gcloud scheduler jobs describe "$SCHEDULER_JOB_OPENMETEO" --location="$REGION" \
   --format="yaml(lastAttemptTime,status)"
-
-# Check weather job execution
-gcloud run jobs executions list --job="$OPENMETEO_JOB_NAME" \
-  --region="$REGION" --limit=3
-
-# Spot-check BigQuery
-bq query --use_legacy_sql=false \
-  "SELECT COUNT(*) AS n FROM \`${PROJECT_ID}.${BQ_RAW_DATASET}.${BQ_OPENAQ_HOURLY_TABLE}\`"
-bq query --use_legacy_sql=false \
-  "SELECT COUNT(*) AS n FROM \`${PROJECT_ID}.${BQ_RAW_DATASET}.${BQ_WEATHER_TABLE}\`"
 ```
+
+## 15 – Alerts on Job failures
+
+List available notification channels:
+
+```bash
+gcloud beta monitoring channels list
+```
+
+Create a notification channel (if needed):
+
+```bash
+gcloud beta monitoring channels create \
+  --display-name="Team Email" \
+  --type=email \
+  --channel-labels=email_address=grandclaye49@gmail.com
+```
+
+Create the alert policy:
+
+```bash
+gcloud monitoring policies create \
+  --display-name="Cloud Run Job Failure Alert" \
+  --condition-display-name="Job execution failed" \
+  --condition-filter='resource.type = "cloud_run_job" AND metric.type = "run.googleapis.com/job/completed_execution_count" AND metric.labels.result = "FAILED"' \
+  --aggregation='{"alignmentPeriod":"60s","perSeriesAligner":"ALIGN_COUNT"}' \
+  --duration="0s" \
+  --if="> 0" \
+  --combiner="OR" \
+  --notification-channels="$ALERT_CHANNEL_ID" \
+  --documentation="Alert triggered when a Cloud Run Job execution fails."
+```
+
+## 16 – Deploy the Streamlit dashboard
+Create views :
+```bash
+bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false \
+  < warehouse/viz/create_analytics_views.sql
+```
+
+```bash
+
+export IMAGE_TAG="$(date +%Y%m%d-%H%M%S)"
+export DASHBOARD_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/dashboard:${IMAGE_TAG}"
+
+gcloud builds submit dashboard --tag "${DASHBOARD_IMAGE}"
+gcloud run deploy air-quality-dashboard \
+  --project=${PROJECT_ID} \
+  --image=${DASHBOARD_IMAGE} \
+  --region=${REGION} \
+  --service-account=${DASHBOARD_READER_SERVICE_ACCOUNT_EMAIL} \
+  --allow-unauthenticated \
+  --memory=512Mi \
+  --cpu=1 \
+  --max-instances=3
 ```
 
 ---
-
-### What changed from the original
-
-| Problem in the original | Fix |
-|---|---|
-| Duplicate / out-of-order step numbers (two "14"s, jump from 4→12) | Renumbered sequentially 0–14 |
-| IAM section never granted `serviceAccountTokenCreator` to the Scheduler service agent — root cause of the silent failures | Added **step 10c** |
-| Missing `iam.serviceAccountUser` for weather job execution | Added **step 10d** |
-| `$PROJECT_NUMBER` never derived | Derived in step 0 |
-| Weather poller build used `gcr.io` but OpenAQ used Artifact Registry — inconsistent | Kept both as-is but grouped clearly; easy to unify later |
-| No verification section | Added **step 14** with force-run + BigQuery checks |
-| Secrets step interleaved after tables for no reason | Moved secrets before any script that reads them |
-| `set-env-vars` one-liner was hard to read/diff | Split across lines with backslash continuation |
-| `|| true` missing on idempotent creates (Pub/Sub, Scheduler) | Added so the script is fully re-runnable |
