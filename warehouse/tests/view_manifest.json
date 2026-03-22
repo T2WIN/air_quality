@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "description": "BigQuery view dependency manifest for test execution",
+  "views": [
+    {
+      "name": "v_openaq_deduped",
+      "file_path": "warehouse/staging/v_openaq_deduped.sql",
+      "stage": 1,
+      "order": 1,
+      "dependencies": [],
+      "dataset": "staging",
+      "description": "Deduped OpenAQ hourly data with latest ingested_at per dedup_key"
+    },
+    {
+      "name": "v_weather_deduped",
+      "file_path": "warehouse/staging/v_weather_deduped.sql",
+      "stage": 1,
+      "order": 2,
+      "dependencies": [],
+      "dataset": "staging",
+      "description": "Deduped weather forecast data with latest ingested_at per station_valid_time"
+    },
+    {
+      "name": "v_station_latest_pollutants",
+      "file_path": "warehouse/analytics/v_station_latest_pollutants.sql",
+      "stage": 2,
+      "order": 1,
+      "dependencies": ["v_openaq_deduped"],
+      "dataset": "analytics",
+      "description": "Latest pollutant readings per station with pivot to columns"
+    },
+    {
+      "name": "v_station_hourly_wide",
+      "file_path": "warehouse/analytics/v_station_hourly_wide.sql",
+      "stage": 2,
+      "order": 2,
+      "dependencies": ["v_openaq_deduped"],
+      "dataset": "analytics",
+      "description": "Hourly air quality data pivoted wide per station-hour"
+    },
+    {
+      "name": "v_station_current_outlook",
+      "file_path": "warehouse/analytics/v_station_current_outlook.sql",
+      "stage": 2,
+      "order": 3,
+      "dependencies": ["v_openaq_deduped", "v_weather_deduped"],
+      "dataset": "analytics",
+      "description": "Current conditions and next 3h outlook per station"
+    },
+    {
+      "name": "v_station_freshness",
+      "file_path": "warehouse/analytics/v_station_freshness.sql",
+      "stage": 2,
+      "order": 4,
+      "dependencies": ["v_openaq_deduped"],
+      "dataset": "analytics",
+      "description": "Data freshness metrics and staleness flags per station"
+    },
+    {
+      "name": "v_ingestion_overview",
+      "file_path": "warehouse/analytics/v_ingestion_overview.sql",
+      "stage": 2,
+      "order": 5,
+      "dependencies": [],
+      "dataset": "analytics",
+      "description": "Cross-system ingestion status and 24h aggregates"
+    }
+  ],
+  "test_fixtures": {
+    "schema_file": "warehouse/tests/schemas/raw_tables.sql",
+    "seed_file": "warehouse/tests/fixtures/seed_core.sql"
+  },
+  "assertions": {
+    "pattern": "warehouse/tests/assertions/{view_name}__*.sql"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "run_id": "20260322_172348_t9ug",
+  "project_id": "air-quality-test-490920",
+  "location": "EU",
+  "datasets": {
+    "raw": "air_quality_raw_test_20260322_172348_t9ug",
+    "staging": "air_quality_staging_test_20260322_172348_t9ug",
+    "analytics": "air_quality_analytics_test_20260322_172348_t9ug"
+  },
+  "status": "passed",
+  "summary": {
+    "tests_total": 20,
+    "passed": 20,
+    "failed": 0,
+    "errors": 0
+  },
+  "tests": [
+    {
+      "name": "v_ingestion_overview__last_24h_aggregates_are_correct",
+      "status": "passed"
+    },
+    {
+      "name": "v_ingestion_overview__latest_run_is_correct",
+      "status": "passed"
+    },
+    {
+      "name": "v_ingestion_overview__one_row_per_source",
+      "status": "passed"
+    },
+    {
+      "name": "v_openaq_deduped__latest_ingested_wins",
+      "status": "passed"
+    },
+    {
+      "name": "v_openaq_deduped__no_duplicate_sensor_hour",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_current_outlook__aggregations_are_correct",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_current_outlook__null_weather_when_missing",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_current_outlook__one_row_per_station",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_current_outlook__requires_pollutant_presence",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_current_outlook__uses_next_3h_from_ingested_at.sql",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_freshness__one_row_per_station",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_freshness__staleness_flags_are_correct",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_hourly_wide__missing_pollutants_are_null",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_hourly_wide__one_row_per_station_hour",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_hourly_wide__pivot_is_correct",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_latest_pollutants__latest_values_are_correct",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_latest_pollutants__metadata_present",
+      "status": "passed"
+    },
+    {
+      "name": "v_station_latest_pollutants__one_row_per_station",
+      "status": "passed"
+    },
+    {
+      "name": "v_weather_deduped__latest_ingested_wins",
+      "status": "passed"
+    },
+    {
+      "name": "v_weather_deduped__no_duplicate_station_valid_time",
+      "status": "passed"
+    }
+  ]
+}
