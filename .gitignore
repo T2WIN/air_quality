@@ -1,4 +1,7 @@
-.env
+.env*
 .venv
 useful_commands.md
 ROADMAP.md
+*pycache*
+NEXT_TO_DO.md
+air_quality_platform.egg-info

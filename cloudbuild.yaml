@@ -1,0 +1,24 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    dir: 'ingestion'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/openaq-poller:${_TAG}'
+      - '-f'
+      - 'openaq_poller/Dockerfile'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    dir: 'ingestion'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/weather-poller:${_TAG}'
+      - '-f'
+      - 'weather_poller/Dockerfile'
+      - '.'
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/openaq-poller:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/weather-poller:${_TAG}'

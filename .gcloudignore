@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+docs/
+kilo/
+warehouse/
+dashboard/
+scripts/
