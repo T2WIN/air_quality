@@ -86,7 +86,9 @@ check "station_sensors table" "bq show '${PROJECT}:${BQ_RAW_DATASET}.${BQ_STATIO
 # -------- BigQuery Views --------
 echo "=== BigQuery Views ==="
 check "openaq staging view" \
-  "bq show --format=prettyjson '${PROJECT}:${BQ_STAGING_DATASET}.openaq_hourly_latest' | grep -q '\"type\": \"VIEW\"'"
+  "bq show --format=prettyjson '${PROJECT}:${BQ_STAGING_DATASET}.v_openaq_deduped' | grep -q '\"type\": \"VIEW\"'"
+  check "open-meteo staging view" \
+  "bq show --format=prettyjson '${PROJECT}:${BQ_STAGING_DATASET}.v_weather_deduped' | grep -q '\"type\": \"VIEW\"'"
 
 # -------- Cloud Run Jobs --------
 echo "=== Cloud Run Jobs ==="
