@@ -1,0 +1,7 @@
+streamlit==1.45.1
+google-cloud-bigquery==3.31.0
+google-cloud-bigquery-storage==2.27.0
+db-dtypes==1.4.2
+pandas==2.2.3
+pydeck==0.9.1
+altair==5.5.0

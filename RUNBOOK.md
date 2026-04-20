@@ -133,29 +133,56 @@ Reads `OPENAQ_API_KEY` from Secret Manager, writes the
 
 ```bash
 pip install google-cloud-bigquery google-cloud-secret-manager requests
-python ingestion/static/station_metadata.py
+python3 ingestion/static/station_metadata.py
 ```
 
 ---
 
-## 7 – BigQuery views
+## 7 – Staging views
 
 ```bash
-envsubst < warehouse/staging/create_dedup_views.sql | bq query \
+envsubst < warehouse/staging/v_openaq_deduped.sql | bq query \
   --location="$BQ_LOCATION" \
   --project_id="$PROJECT_ID" \
   --use_legacy_sql=false
-envsubst < warehouse/staging/create_ingestion_freshness_view.sql | bq query \
-  --location="$BQ_LOCATION" \
-  --project_id="$PROJECT_ID" \
-  --use_legacy_sql=false
-envsubst < warehouse/staging/create_station_freshness_view.sql | bq query \
+envsubst < warehouse/staging/v_weather_deduped.sql | bq query \
   --location="$BQ_LOCATION" \
   --project_id="$PROJECT_ID" \
   --use_legacy_sql=false
 ```
 
 ---
+
+## 8 – Analytics views
+
+```bash
+export REFERENCE_TIMESTAMP="CURRENT_TIMESTAMP()"
+
+envsubst '${REFERENCE_TIMESTAMP}' < warehouse/analytics/v_ingestion_overview.sql | bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
+
+envsubst < warehouse/analytics/v_station_current_outlook.sql | bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
+
+envsubst '${REFERENCE_TIMESTAMP}' < warehouse/analytics/v_station_freshness.sql | bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
+
+envsubst < warehouse/analytics/v_station_hourly_wide.sql | bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
+
+envsubst < warehouse/analytics/v_station_latest_pollutants.sql | bq query \
+  --location="$BQ_LOCATION" \
+  --project_id="$PROJECT_ID" \
+  --use_legacy_sql=false
+```
 
 ---
 
@@ -422,17 +449,8 @@ gcloud monitoring policies create \
 ```
 
 ## 16 – Deploy the Streamlit dashboard
-Create views :
-```bash
-bq query \
-  --location="$BQ_LOCATION" \
-  --project_id="$PROJECT_ID" \
-  --use_legacy_sql=false \
-  < warehouse/viz/create_analytics_views.sql
-```
 
 ```bash
-
 export IMAGE_TAG="$(date +%Y%m%d-%H%M%S)"
 export DASHBOARD_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/dashboard:${IMAGE_TAG}"
 
