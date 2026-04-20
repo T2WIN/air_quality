@@ -23,7 +23,7 @@ actual AS (
     total_precipitation,
     max_wind_speed_10m,
     COALESCE(forecast_hours_count, 0) AS forecast_hours_count
-  FROM `{project_id}.{analytics_dataset}.v_station_current_outlook`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_current_outlook`
   WHERE station_id = 'station_b'
 )
 SELECT

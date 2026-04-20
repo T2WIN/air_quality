@@ -6,7 +6,7 @@
 -- Run with: bq query --use_legacy_sql=false < warehouse/raw/create_ingestion_log_table.sql
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS air_quality_raw.ingestion_log (
+CREATE TABLE IF NOT EXISTS `${PROJECT_ID}.${BQ_RAW_DATASET}.ingestion_log` (
   run_id                  STRING NOT NULL,
   source                  STRING NOT NULL,          -- 'openaq' or 'open-meteo'
   status                  STRING NOT NULL,           -- 'success', 'partial_success', 'error', 'empty'

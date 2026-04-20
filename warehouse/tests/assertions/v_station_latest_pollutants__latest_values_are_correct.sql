@@ -14,7 +14,7 @@ actual AS (
     pm25_value,
     pm10_value,
     no2_value
-  FROM `{project_id}.{analytics_dataset}.v_station_latest_pollutants`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_latest_pollutants`
   WHERE station_id = 'station_a'
 )
 SELECT

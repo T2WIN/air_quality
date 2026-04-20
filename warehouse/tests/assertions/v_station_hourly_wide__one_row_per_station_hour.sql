@@ -7,6 +7,6 @@ SELECT
   NULL AS expected_value,
   CAST(COUNT(*) AS STRING) AS actual_value,
   'Duplicate station-hour pairs found' AS reason
-FROM `{project_id}.{analytics_dataset}.v_station_hourly_wide`
+FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_hourly_wide`
 GROUP BY station_id, hour_utc
 HAVING COUNT(*) > 1;

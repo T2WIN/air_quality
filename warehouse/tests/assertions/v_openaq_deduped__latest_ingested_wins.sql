@@ -10,7 +10,7 @@ actual_rows AS (
   SELECT
     dedup_key,
     value AS actual_value
-  FROM `{project_id}.{staging_dataset}.v_openaq_deduped`
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_openaq_deduped`
   WHERE dedup_key = '101_2026-03-22T10:00:00'
 )
 SELECT

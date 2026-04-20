@@ -3,7 +3,7 @@
 -- Returns only the latest ingested_at row per station_id + valid_time
 -- ============================================================
 
-CREATE OR REPLACE VIEW `{project_id}.{staging_dataset}.v_weather_deduped` AS
+CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` AS
 SELECT
   * EXCEPT(rn)
 FROM (
@@ -13,6 +13,6 @@ FROM (
       PARTITION BY station_id, valid_time
       ORDER BY ingested_at DESC
     ) AS rn
-  FROM `{project_id}.{raw_dataset}.weather_forecasts`
+  FROM `${PROJECT_ID}.${BQ_RAW_DATASET}.weather_forecasts`
 )
 WHERE rn = 1;

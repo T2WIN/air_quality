@@ -7,6 +7,6 @@ SELECT
   NULL AS expected_value,
   CAST(COUNT(*) AS STRING) AS actual_value,
   'Duplicate sensor-hour pairs found' AS reason
-FROM `{project_id}.{staging_dataset}.v_openaq_deduped`
+FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_openaq_deduped`
 GROUP BY openaq_sensor_id, period_from_utc
 HAVING COUNT(*) > 1;

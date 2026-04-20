@@ -3,7 +3,7 @@
 -- Shows latest pollutants + weather forecasts for next 3 hours
 -- ============================================================
 
-CREATE OR REPLACE VIEW `{project_id}.{analytics_dataset}.v_station_current_outlook` AS
+CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_current_outlook` AS
 WITH ranked_pollutants AS (
   -- Rank pollutant readings by period_from_utc DESC, ingested_at DESC
   -- to get the latest reading per station per pollutant
@@ -16,7 +16,7 @@ WITH ranked_pollutants AS (
       PARTITION BY station_id, pollutant
       ORDER BY period_from_utc DESC, ingested_at DESC
     ) AS rn
-  FROM `{project_id}.{staging_dataset}.v_openaq_deduped`
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_openaq_deduped`
   WHERE pollutant IN ('pm25', 'pm10', 'no2')
 ),
 latest_pollutants AS (
@@ -36,7 +36,7 @@ weather_basis AS (
   SELECT
     station_id,
     MAX(ingested_at) AS latest_weather_ingested_at
-  FROM `{project_id}.{staging_dataset}.v_weather_deduped`
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped`
   GROUP BY station_id
 ),
 outlook_weather AS (
@@ -53,7 +53,7 @@ outlook_weather AS (
     MAX(w.wind_speed_10m) AS max_wind_speed_10m,
     COUNT(w.valid_time) AS forecast_hours_count
   FROM weather_basis wb
-  LEFT JOIN `{project_id}.{staging_dataset}.v_weather_deduped` w
+  LEFT JOIN `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` w
     ON wb.station_id = w.station_id
     AND w.valid_time > wb.latest_weather_ingested_at
     AND w.valid_time <= TIMESTAMP_ADD(wb.latest_weather_ingested_at, INTERVAL 3 HOUR)
@@ -85,5 +85,5 @@ SELECT
 FROM latest_pollutants lp
 LEFT JOIN outlook_weather ow
   ON lp.station_id = ow.station_id
-LEFT JOIN `{project_id}.{raw_dataset}.station_metadata` m
+LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
   ON lp.station_id = m.station_id;

@@ -22,7 +22,7 @@ actual AS (
     latest_run_status,
     latest_run_started_at,
     latest_run_records_written
-  FROM `{project_id}.{analytics_dataset}.v_ingestion_overview`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_ingestion_overview`
 )
 SELECT
   'v_ingestion_overview__latest_run_is_correct' AS test_name,

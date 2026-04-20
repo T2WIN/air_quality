@@ -13,7 +13,7 @@ actual AS (
     country_code,
     latitude,
     longitude
-  FROM `{project_id}.{analytics_dataset}.v_station_latest_pollutants`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_latest_pollutants`
 )
 SELECT
   'v_station_latest_pollutants__metadata_present' AS test_name,

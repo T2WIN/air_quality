@@ -3,7 +3,7 @@
 -- One row per station per hour with pollutant columns
 -- ============================================================
 
-CREATE OR REPLACE VIEW `{project_id}.{analytics_dataset}.v_station_hourly_wide` AS
+CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_hourly_wide` AS
 WITH hourly_pollutants AS (
   SELECT
     station_id,
@@ -13,7 +13,7 @@ WITH hourly_pollutants AS (
     unit,
     coverage_pct,
     ingested_at
-  FROM `{project_id}.{staging_dataset}.v_openaq_deduped`
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_openaq_deduped`
   WHERE pollutant IN ('pm25', 'pm10', 'no2')
 )
 SELECT

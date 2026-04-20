@@ -5,7 +5,7 @@
 
 -- Station metadata: one row per monitoring station
 -- Small table, no partitioning needed
-CREATE TABLE IF NOT EXISTS air_quality_raw.station_metadata (
+CREATE TABLE IF NOT EXISTS `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` (
   station_id              STRING NOT NULL,
   openaq_location_id      INT64 NOT NULL,
   station_name            STRING,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS air_quality_raw.station_metadata (
 
 -- Sensor lookup: one row per sensor per station
 -- The poller reads this to know which sensor IDs to query
-CREATE TABLE IF NOT EXISTS air_quality_raw.station_sensors (
+CREATE TABLE IF NOT EXISTS `${PROJECT_ID}.${BQ_RAW_DATASET}.station_sensors` (
   station_id              STRING NOT NULL,
   openaq_location_id      INT64 NOT NULL,
   openaq_sensor_id        INT64 NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS air_quality_raw.station_sensors (
 -- Hourly pollutant measurements from OpenAQ
 -- One row per station per pollutant per hour
 -- ----- Hourly pollutant measurements (30-day expiration) -----
-CREATE TABLE IF NOT EXISTS air_quality_raw.openaq_hourly (
+CREATE TABLE IF NOT EXISTS `${PROJECT_ID}.${BQ_RAW_DATASET}.openaq_hourly` (
   ingested_at             TIMESTAMP NOT NULL,
   run_id                  STRING NOT NULL,
   station_id              STRING NOT NULL,
@@ -72,7 +72,7 @@ OPTIONS (
 );
 
 -- ----- Weather forecasts (30-day expiration) -----
-CREATE TABLE IF NOT EXISTS air_quality_raw.weather_forecasts (
+CREATE TABLE IF NOT EXISTS `${PROJECT_ID}.${BQ_RAW_DATASET}.weather_forecasts` (
   
   station_id          STRING      NOT NULL,
   run_id              STRING      NOT NULL,

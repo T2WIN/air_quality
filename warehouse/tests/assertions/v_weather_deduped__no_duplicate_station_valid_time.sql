@@ -7,6 +7,6 @@ SELECT
   NULL AS expected_value,
   CAST(COUNT(*) AS STRING) AS actual_value,
   'Duplicate station-valid_time pairs found' AS reason
-FROM `{project_id}.{staging_dataset}.v_weather_deduped`
+FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped`
 GROUP BY station_id, valid_time
 HAVING COUNT(*) > 1;

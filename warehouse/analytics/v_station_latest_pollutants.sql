@@ -3,7 +3,7 @@
 -- Pivots pm25, pm10, no2 into separate columns
 -- ============================================================
 
-CREATE OR REPLACE VIEW `{project_id}.{analytics_dataset}.v_station_latest_pollutants` AS
+CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_latest_pollutants` AS
 WITH latest_per_pollutant AS (
   -- Get the latest reading for each pollutant per station
   SELECT
@@ -16,7 +16,7 @@ WITH latest_per_pollutant AS (
       PARTITION BY station_id, pollutant
       ORDER BY period_from_utc DESC, ingested_at DESC
     ) AS rn
-  FROM `{project_id}.{staging_dataset}.v_openaq_deduped`
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_openaq_deduped`
   WHERE pollutant IN ('pm25', 'pm10', 'no2')
 ),
 latest_filtered AS (
@@ -47,5 +47,5 @@ SELECT
   m.latitude,
   m.longitude
 FROM pivoted p
-LEFT JOIN `{project_id}.{raw_dataset}.station_metadata` m
+LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
   USING (station_id);

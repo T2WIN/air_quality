@@ -7,6 +7,6 @@ SELECT
   '1' AS expected_value,
   CAST(COUNT(*) AS STRING) AS actual_value,
   'Station has more than one row' AS reason
-FROM `{project_id}.{analytics_dataset}.v_station_freshness`
+FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_freshness`
 GROUP BY station_id
 HAVING COUNT(*) > 1;

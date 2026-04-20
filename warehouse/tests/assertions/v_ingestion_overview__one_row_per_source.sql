@@ -7,6 +7,6 @@ SELECT
   '1' AS expected_value,
   CAST(COUNT(*) AS STRING) AS actual_value,
   'Source has more than one row' AS reason
-FROM `{project_id}.{analytics_dataset}.v_ingestion_overview`
+FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_ingestion_overview`
 GROUP BY source
 HAVING COUNT(*) > 1;

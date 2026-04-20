@@ -16,7 +16,7 @@ actual AS (
     is_data_stale,
     is_ingestion_stale,
     hours_since_data
-  FROM `{project_id}.{analytics_dataset}.v_station_freshness`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_freshness`
   WHERE station_id = 'station_a'
 )
 SELECT

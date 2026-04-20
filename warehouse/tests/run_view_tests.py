@@ -219,21 +219,21 @@ class BigQueryTestClient:
 
 
 def render_sql_template(sql: str, placeholders: dict[str, str]) -> str:
-    """Replace placeholders in SQL template with actual values."""
+    """Replace ${VAR} style placeholders in SQL template with actual values."""
     result = sql
     for key, value in placeholders.items():
-        result = result.replace(f"{{{key}}}", value)
+        result = result.replace(f"${{{key}}}", value)
     return result
 
 
 def get_placeholders(config: Config, run: TestRun) -> dict[str, str]:
-    """Generate placeholder mapping for SQL templates."""
+    """Generate placeholder mapping for SQL templates using env var names."""
     return {
-        "project_id": config.dev_project_id,
-        "raw_dataset": run.raw_dataset,
-        "staging_dataset": run.staging_dataset,
-        "analytics_dataset": run.analytics_dataset,
-        "reference_timestamp": config.reference_timestamp,
+        "PROJECT_ID": config.dev_project_id,
+        "BQ_RAW_DATASET": run.raw_dataset,
+        "BQ_STAGING_DATASET": run.staging_dataset,
+        "BQ_ANALYTICS_DATASET": run.analytics_dataset,
+        "REFERENCE_TIMESTAMP": config.reference_timestamp,
     }
 
 

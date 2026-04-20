@@ -9,5 +9,5 @@ SELECT
   'should_not_appear' AS expected_value,
   'appears' AS actual_value,
   'Station should not appear without pollutant data' AS reason
-FROM `{project_id}.{analytics_dataset}.v_station_current_outlook`
+FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_current_outlook`
 WHERE station_id NOT IN ('station_a', 'station_b');

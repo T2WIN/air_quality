@@ -8,7 +8,7 @@
 -- 1. Station Metadata (3 stations)
 -- ============================================================
 
-INSERT INTO `{project_id}.{raw_dataset}.station_metadata` (
+INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` (
   station_id, openaq_location_id, station_name, locality, country_code,
   country_name, latitude, longitude, timezone, is_mobile, is_monitor,
   loaded_at
@@ -33,7 +33,7 @@ INSERT INTO `{project_id}.{raw_dataset}.station_metadata` (
 -- 2. Station Sensors (3 sensors per station: pm25, pm10, no2)
 -- ============================================================
 
-INSERT INTO `{project_id}.{raw_dataset}.station_sensors` (
+INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.station_sensors` (
   station_id, openaq_location_id, openaq_sensor_id,
   parameter_id, parameter_name, parameter_display_name, parameter_units,
   loaded_at
@@ -51,7 +51,7 @@ INSERT INTO `{project_id}.{raw_dataset}.station_sensors` (
 -- 3. OpenAQ Hourly Data
 -- ============================================================
 
-INSERT INTO `{project_id}.{raw_dataset}.openaq_hourly` (
+INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.openaq_hourly` (
   ingested_at, run_id, station_id, openaq_location_id, openaq_sensor_id,
   pollutant, value, unit, period_from_utc, period_to_utc, dedup_key
 ) VALUES
@@ -123,7 +123,7 @@ INSERT INTO `{project_id}.{raw_dataset}.openaq_hourly` (
 -- 4. Weather Forecasts
 -- ============================================================
 
-INSERT INTO `{project_id}.{raw_dataset}.weather_forecasts` (
+INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.weather_forecasts` (
   station_id, run_id, latitude, longitude, valid_time,
   temperature_2m, relative_humidity_2m, surface_pressure,
   wind_speed_10m, wind_direction_10m, precipitation,
@@ -177,7 +177,7 @@ INSERT INTO `{project_id}.{raw_dataset}.weather_forecasts` (
 -- 5. Ingestion Log (for testing v_ingestion_overview)
 -- ============================================================
 
-INSERT INTO `{project_id}.{raw_dataset}.ingestion_log` (
+INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.ingestion_log` (
   run_id, source, status, run_started_at, run_finished_at,
   duration_seconds, records_written, api_calls, api_errors,
   error_message, ingested_at

@@ -16,7 +16,7 @@ actual AS (
     pm25_value,
     pm10_value,
     no2_value
-  FROM `{project_id}.{analytics_dataset}.v_station_hourly_wide`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_hourly_wide`
   WHERE station_id = 'station_a' AND hour_utc = TIMESTAMP '2026-03-22 10:00:00 UTC'
 )
 SELECT

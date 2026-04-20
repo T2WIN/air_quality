@@ -9,7 +9,7 @@ actual AS (
     station_id,
     valid_time,
     temperature_2m AS actual_temp
-  FROM `{project_id}.{staging_dataset}.v_weather_deduped`
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped`
   WHERE station_id = 'station_a' AND valid_time = TIMESTAMP '2026-03-22 11:00:00 UTC'
 )
 SELECT

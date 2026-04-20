@@ -1,10 +1,10 @@
 -- ============================================================
 -- v_ingestion_overview: Cross-system ingestion status
 -- Shows latest run and 24h aggregates per source
--- Uses {reference_timestamp} placeholder for testability
+-- Uses ${REFERENCE_TIMESTAMP} for testability
 -- ============================================================
 
-CREATE OR REPLACE VIEW `{project_id}.{analytics_dataset}.v_ingestion_overview` AS
+CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_ingestion_overview` AS
 WITH latest_runs AS (
   -- Get the latest run per source
   SELECT
@@ -20,7 +20,7 @@ WITH latest_runs AS (
       PARTITION BY source
       ORDER BY run_started_at DESC
     ) AS rn
-  FROM `{project_id}.{raw_dataset}.ingestion_log`
+  FROM `${PROJECT_ID}.${BQ_RAW_DATASET}.ingestion_log`
 ),
 aggregates_24h AS (
   -- Aggregate metrics over last 24h from reference timestamp
@@ -35,8 +35,8 @@ aggregates_24h AS (
     SUM(records_written) AS total_records_24h,
     SUM(api_calls) AS total_api_calls_24h,
     SUM(api_errors) AS total_api_errors_24h
-  FROM `{project_id}.{raw_dataset}.ingestion_log`
-  WHERE run_started_at > TIMESTAMP_SUB({reference_timestamp}, INTERVAL 24 HOUR)
+  FROM `${PROJECT_ID}.${BQ_RAW_DATASET}.ingestion_log`
+  WHERE run_started_at > TIMESTAMP_SUB(${REFERENCE_TIMESTAMP}, INTERVAL 24 HOUR)
   GROUP BY source
 )
 SELECT

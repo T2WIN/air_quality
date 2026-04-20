@@ -25,7 +25,7 @@ actual AS (
     avg_boundary_layer_height,
     total_precipitation,
     max_wind_speed_10m
-  FROM `{project_id}.{analytics_dataset}.v_station_current_outlook`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_current_outlook`
   WHERE station_id = 'station_a'
 )
 SELECT

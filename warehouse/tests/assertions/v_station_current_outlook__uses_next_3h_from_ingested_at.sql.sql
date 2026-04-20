@@ -7,6 +7,6 @@ SELECT
   '3' AS expected_value,
   CAST(forecast_hours_count AS STRING) AS actual_value,
   'Forecast includes hours beyond 3h window' AS reason
-FROM `{project_id}.{analytics_dataset}.v_station_current_outlook`
+FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_station_current_outlook`
 WHERE station_id = 'station_a'
   AND forecast_hours_count != 3;

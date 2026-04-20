@@ -20,7 +20,7 @@ actual AS (
     successes_24h,
     errors_24h,
     total_records_24h
-  FROM `{project_id}.{analytics_dataset}.v_ingestion_overview`
+  FROM `${PROJECT_ID}.${BQ_ANALYTICS_DATASET}.v_ingestion_overview`
 )
 SELECT
   'v_ingestion_overview__last_24h_aggregates_are_correct' AS test_name,
