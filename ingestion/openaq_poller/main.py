@@ -214,7 +214,7 @@ class Config:
             openaq_base_url=os.getenv(
                 "OPENAQ_BASE_URL", "https://api.openaq.org/v3"
             ).rstrip("/"),
-            openaq_api_key=os.getenv("OPENAQ_API_KEY", "48193f5896bc7163a8dab4d9c3f2ab5ad263eeaade7b0b2ccfa8906cc76ed968")
+            openaq_api_key=os.getenv("OPENAQ_API_KEY")
             or None,
             lookback_hours=int(os.getenv("LOOKBACK_HOURS", "3")),
             max_workers=int(os.getenv("MAX_WORKERS", "8")),
@@ -458,7 +458,7 @@ def _fetch_sensor_hours(
                 progress.record_retry()
                 delay = backoff_seconds(attempt, response)
                 logging.warning(
-                    "Retryable %s run_id=%s  sensor_id=%s  attempt=%s/%s  wait=%.1fs",
+                    "Retryable run_id=%s status=%s  sensor_id=%s  attempt=%s/%s  wait=%.1fs",
                     run_id,
                     response.status_code,
                     sensor_id,
