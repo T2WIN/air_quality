@@ -58,7 +58,6 @@ class WeatherRow(TypedDict):
     station_id: int
     latitude: float
     longitude: float
-    forecast_time: str
     valid_time: str
     ingested_at: str
     dedup_key: str
@@ -348,7 +347,6 @@ def parse_batch(
                 "station_id": station_id,
                 "latitude": lat,
                 "longitude": lon,
-                "forecast_time": ingested_at,
                 "valid_time": valid_time,
                 "ingested_at": ingested_at,
                 "dedup_key": dedup_key,

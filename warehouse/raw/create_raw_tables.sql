@@ -78,7 +78,6 @@ CREATE TABLE IF NOT EXISTS air_quality_raw.weather_forecasts (
   run_id              STRING      NOT NULL,
   latitude            FLOAT64     NOT NULL,
   longitude           FLOAT64     NOT NULL,
-  forecast_time       TIMESTAMP   NOT NULL,
   valid_time          TIMESTAMP   NOT NULL,
   temperature_2m      FLOAT64,
   relative_humidity_2m FLOAT64,
