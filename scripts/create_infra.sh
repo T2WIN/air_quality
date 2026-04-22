@@ -284,38 +284,4 @@ echo "Scheduler Status:"
 gcloud scheduler jobs describe "$SCHEDULER_JOB_OPENAQ" --location="$REGION" --format="yaml(lastAttemptTime,status)" 2>/dev/null || true
 gcloud scheduler jobs describe "$SCHEDULER_JOB_OPENMETEO" --location="$REGION" --format="yaml(lastAttemptTime,status)" 2>/dev/null || true
 
-# ------------------------------------------------------------------
-# 15 – Alerts on Job failures
-# ------------------------------------------------------------------
-echo "Step 15: Configuring Alerts..."
-if [[ -z "${ALERT_CHANNEL_ID:-}" ]]; then
-  echo "----------------------------------------------------------------------"
-  echo "SUGGESTION: ALERT_CHANNEL_ID is not set. Skipping alert policy creation."
-  echo "To enable alerts:"
-  echo "1. Create a notification channel:"
-  echo "   gcloud beta monitoring channels create --display-name='Team Email' --type=email --channel-labels=email_address=grandclaye49@gmail.com"
-  echo "2. Grab the ID from the output, add ALERT_CHANNEL_ID=<id> to your .env"
-  echo "3. Re-run this step or create the policy manually."
-  echo "----------------------------------------------------------------------"
-else
-  gcloud monitoring policies create \
-    --display-name="Cloud Run Job Failure Alert" \
-    --condition-display-name="Job execution failed" \
-    --condition-filter='resource.type = "cloud_run_job" AND metric.type = "run.googleapis.com/job/completed_execution_count" AND metric.labels.result = "FAILED"' \
-    --aggregation='{"alignmentPeriod":"60s","perSeriesAligner":"ALIGN_COUNT"}' \
-    --duration="0s" \
-    --if="> 0" \
-    --combiner="OR" \
-    --notification-channels="$ALERT_CHANNEL_ID" \
-    --documentation="Alert triggered when a Cloud Run Job execution fails." \
-    --quiet || true
-fi
-
-# ------------------------------------------------------------------
-# 16 – Deploy the Streamlit dashboard
-# ------------------------------------------------------------------
-echo "Step 16: Deploying Streamlit dashboard..."
-export IMAGE_TAG="$(date +%Y%m%d-%H%M%S)"
-export DASHBOARD_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/dashboard:${IMAGE_TAG}"
-
 echo "Setup completed successfully."
