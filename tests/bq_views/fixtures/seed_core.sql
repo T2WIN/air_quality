@@ -171,7 +171,39 @@ INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.weather_forecasts` (
   ('station_c', 'weather_run_1', 48.1351, 11.5820,
    TIMESTAMP '2026-03-22 13:00:00 UTC',
    12.0, 60.0, 1013.0, 6.0, 180.0, 1.5, 25.0, 500.0,
-   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_c_2026-03-22T13:00:00');
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_c_2026-03-22T13:00:00'),
+
+  -- Station A: +5h, +6h, +7h (future hours: 15:00, 16:00, 17:00 UTC)
+  -- 15:00 → blh=800, wind=8, precip=1.5 → poor (0.40)
+  ('station_a', 'weather_run_1', 52.5200, 13.4050,
+   TIMESTAMP '2026-03-22 15:00:00 UTC',
+   16.0, 50.0, 1010.0, 8.0, 210.0, 1.5, 40.0, 800.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T15:00:00'),
+
+  -- 16:00 → blh=1400, wind=12, precip=1.5 → good (0.68)
+  ('station_a', 'weather_run_1', 52.5200, 13.4050,
+   TIMESTAMP '2026-03-22 16:00:00 UTC',
+   17.0, 45.0, 1009.0, 12.0, 220.0, 1.5, 35.0, 1400.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T16:00:00'),
+
+  -- 17:00 → blh=1300, wind=10, precip=1.5 → good (0.60)
+  ('station_a', 'weather_run_1', 52.5200, 13.4050,
+   TIMESTAMP '2026-03-22 17:00:00 UTC',
+   16.5, 48.0, 1009.0, 10.0, 215.0, 1.5, 30.0, 1300.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T17:00:00'),
+
+  -- Station A: +3h and +4h (overlap with pollutant hours for combined view)
+  -- 09:00 → blh=400, wind=3, precip=2 → fair (0.31)
+  ('station_a', 'weather_run_1', 52.5200, 13.4050,
+   TIMESTAMP '2026-03-22 09:00:00 UTC',
+   8.0, 70.0, 1013.0, 3.0, 180.0, 2.0, 30.0, 400.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T09:00:00'),
+
+  -- 10:00 → blh=600, wind=5, precip=2 → fair (0.40)
+  ('station_a', 'weather_run_1', 52.5200, 13.4050,
+   TIMESTAMP '2026-03-22 10:00:00 UTC',
+   10.0, 65.0, 1012.0, 5.0, 190.0, 2.0, 25.0, 600.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T10:00:00');
 
 -- ============================================================
 -- 5. Ingestion Log (for testing v_ingestion_overview)

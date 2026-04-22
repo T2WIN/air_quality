@@ -32,7 +32,7 @@ from google.api_core.exceptions import GoogleAPICallError
 # Path Constants (module-relative, not CWD-dependent)
 # =============================================================================
 
-TESTS_DIR = Path(__file__).resolve().parent          # warehouse/tests/
+TESTS_DIR = Path(__file__).resolve().parent          # tests/bq_views/
 REPO_ROOT = TESTS_DIR.parent.parent                  # repository root
 
 SCHEMA_PATH = TESTS_DIR / "schemas" / "raw_tables.sql"

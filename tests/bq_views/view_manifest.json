@@ -67,10 +67,10 @@
     }
   ],
   "test_fixtures": {
-    "schema_file": "warehouse/tests/schemas/raw_tables.sql",
-    "seed_file": "warehouse/tests/fixtures/seed_core.sql"
+    "schema_file": "tests/bq_views/schemas/raw_tables.sql",
+    "seed_file": "tests/bq_views/fixtures/seed_core.sql"
   },
   "assertions": {
-    "pattern": "warehouse/tests/assertions/{view_name}__*.sql"
+    "pattern": "tests/bq_views/assertions/{view_name}__*.sql"
   }
 }
