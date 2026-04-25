@@ -34,7 +34,7 @@ Append-only log of significant project events, decisions, and milestones.
 
 ## 2026-04-20 — Turned RUNBOOK into a runnable bashfile
 - **What**: Converted RUNBOOK.md to executable bash script with validation checks (I have the thought of moving to Terraform after this).
-- **Why**: Automate deployment validation process (I tried the runbook as documentation but I realized I wanted to use it as an automated way to setup the cloud infrastructure) .
+- **Why**: Automate deployment validation process (I tried the runbook as documentation but I realized I wanted to use it as an automated way to setup the cloud infrastructure).
 - **Impact**: Faster, more reliable deployment verification.
 - **Key files**: scripts/validate-infra.sh
 - **Verification**: Script executes all steps and validates results.
