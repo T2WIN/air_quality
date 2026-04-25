@@ -165,38 +165,43 @@ Verified: these additions don't break existing `v_station_current_outlook` asser
 
 ## Files to Change
 
-| # | File | Action | Detail |
-|---|---|---|---|
-| 1 | `tests/bq_views/fixtures/seed_core.sql` | Edit | Fix values of existing 3 future rows + 2 overlap rows for station_a; add 2 future rows for station_c |
-| 2 | `warehouse/analytics/v_station_hourly_combined.sql` | **Create** | Pivoted hourly pollutants LEFT JOIN weather at station/hour; no metadata columns |
-| 3 | `warehouse/analytics/v_station_dispersion_outlook.sql` | **Create** | Future forecast hours with dispersion index + latest PM2.5 + metadata; uses `${REFERENCE_TIMESTAMP}` |
-| 4 | `tests/bq_views/view_manifest.json` | Edit | Add 2 entries: `v_station_hourly_combined` (stage 2, order 3, deps: v_openaq_deduped, v_weather_deduped) and `v_station_dispersion_outlook` (stage 2, order 4, deps: v_openaq_deduped, v_weather_deduped) |
-| 5 | `tests/bq_views/assertions/v_station_hourly_combined__pollutant_weather_join_is_correct.sql` | **Create** | |
-| 6 | `tests/bq_views/assertions/v_station_hourly_combined__null_weather_hours_exist.sql` | **Create** | |
-| 7 | `tests/bq_views/assertions/v_station_dispersion_outlook__only_future_hours_returned.sql` | **Create** | |
-| 8 | `tests/bq_views/assertions/v_station_dispersion_outlook__dispersion_scores_are_correct.sql` | **Create** | |
-| 9 | `tests/bq_views/assertions/v_station_dispersion_outlook__latest_pm25_attached.sql` | **Create** | |
-| 10 | `scripts/create_infra.sh` | Edit | Step 8: add 2 `envsubst \| bq query` lines for new views. Step 16: dashboard deploy (image already built in step 11 via cloudbuild.yaml) with `--set-env-vars` for PROJECT_ID/BQ datasets, `--allow-unauthenticated`, service account = `DASHBOARD_READER_SERVICE_ACCOUNT_NAME` |
-| 11 | `cloudbuild.yaml` | Edit | Add dashboard build step (3 containers total); single gcloud builds submit call in create_infra.sh step 11 builds all images |
-| 12 | `scripts/validate-infra.sh` | Edit | Add existence checks for all 7 analytics views (5 existing + 2 new) using `bq show` pattern |
-| 13 | `dashboard/app.py` | **Rewrite** | 5 sections against 4 analytics views; use env vars for dataset names |
+| # | File | Action | Detail | Status |
+|---|---|---|---|---|
+| 1 | `tests/bq_views/fixtures/seed_core.sql` | Edit | Fix values of existing 3 future rows + 2 overlap rows for station_a; add 2 future rows for station_c | DONE |
+| 2 | `warehouse/analytics/v_station_hourly_combined.sql` | **Create** | Pivoted hourly pollutants LEFT JOIN weather at station/hour; no metadata columns | DONE |
+| 3 | `warehouse/analytics/v_station_dispersion_outlook.sql` | **Create** | Future forecast hours with dispersion index + latest PM2.5 + metadata; uses `${REFERENCE_TIMESTAMP}` | DONE |
+| 4 | `tests/bq_views/view_manifest.json` | Edit | Add 2 entries: `v_station_hourly_combined` (stage 2, order 3, deps: v_openaq_deduped, v_weather_deduped) and `v_station_dispersion_outlook` (stage 2, order 4, deps: v_openaq_deduped, v_weather_deduped) | DONE |
+| 5 | `tests/bq_views/assertions/v_station_hourly_combined__pollutant_weather_join_is_correct.sql` | **Create** | | DONE |
+| 6 | `tests/bq_views/assertions/v_station_hourly_combined__null_weather_hours_exist.sql` | **Create** | | DONE |
+| 7 | `tests/bq_views/assertions/v_station_dispersion_outlook__only_future_hours_returned.sql` | **Create** | | DONE |
+| 8 | `tests/bq_views/assertions/v_station_dispersion_outlook__dispersion_scores_are_correct.sql` | **Create** | | DONE |
+| 9 | `tests/bq_views/assertions/v_station_dispersion_outlook__latest_pm25_attached.sql` | **Create** | | DONE |
+| 10 | `scripts/create_infra.sh` | Edit | Step 8: add 2 `envsubst \| bq query` lines for new views. Step 16: dashboard deploy (image already built in step 11 via cloudbuild.yaml) with `--set-env-vars` for PROJECT_ID/BQ datasets, `--allow-unauthenticated`, service account = `DASHBOARD_READER_SERVICE_ACCOUNT_NAME` | |
+| 11 | `cloudbuild.yaml` | Edit | Add dashboard build step (3 containers total); single gcloud builds submit call in create_infra.sh step 11 builds all images | |
+| 12 | `scripts/validate-infra.sh` | Edit | Add existence checks for all 7 analytics views (5 existing + 2 new) using `bq show` pattern | |
+| 13 | `dashboard/app.py` | **Rewrite** | 5 sections against 4 analytics views; use env vars for dataset names | |
 
----
+## Implementation Notes
+
+- BigQuery does not have CLAMP function; used `LEAST(GREATEST(value, 0), 1)` instead.
+- `${REFERENCE_TIMESTAMP}` syntax: used bare placeholder (not `TIMESTAMP '${REFERENCE_TIMESTAMP}'`) to ensure proper substitution.
+- `v_station_hourly_combined`: metadata columns (station_name, locality, lat/lon) removed per spec to keep the view lean; these are joined in the dashboard from `v_station_latest_pollutants`.
 
 ## Execution Order
 
-1. Add fixture data to `seed_core.sql`
-2. Create `v_station_hourly_combined.sql`
-3. Create `v_station_dispersion_outlook.sql`
-4. Update `view_manifest.json`
-5. Create 5 assertion SQL files
-6. Update `scripts/create_infra.sh` (step 8 + step 16 dashboard deploy only)
-7. Update `cloudbuild.yaml` (add dashboard build step; single build call builds all images)
-8. Update `scripts/validate-infra.sh` (analytics view checks)
-9. Run warehouse view tests: `cd tests/bq_views && python run_view_tests.py`
-10. Rewrite `dashboard/app.py`
-11. Run linting/type checks per `AGENTS.md`: `black --check`, `isort --check`, `ruff check`, `mypy --strict`
-12. Deploy new views to GCP (manual `envsubst | bq query` for the 2 new views, or re-run `create_infra.sh`)
-13. Build & deploy dashboard to Cloud Run
-14. Run `bash scripts/validate-infra.sh $PROJECT_ID`
-15. Local smoke test of dashboard
+1. Add fixture data to `seed_core.sql` - DONE
+2. Create `v_station_hourly_combined.sql` - DONE
+3. Create `v_station_dispersion_outlook.sql` - DONE
+4. Update `view_manifest.json` - DONE
+5. Create 5 assertion SQL files - DONE
+6. Run warehouse view tests: `cd tests/bq_views && python run_view_tests.py` - DONE
+7. Update `scripts/create_infra.sh` to include new views - DONE
+8. Deploy new views to GCP (manual `envsubst | bq query` for the 2 new views, or re-run `create_infra.sh`) - DONE
+9. Rewrite `dashboard/app.py`
+10. Run linting/type checks per `AGENTS.md`: `black --check`, `isort --check`, `ruff check`, `mypy --strict`
+11. Update `scripts/create_infra.sh` 
+12. Update `cloudbuild.yaml` (add dashboard build step; single build call builds all images)
+13. Update `scripts/validate-infra.sh` (analytics view checks)
+14. Build & deploy dashboard to Cloud Run
+15. Run `bash scripts/validate-infra.sh $PROJECT_ID`
+16. Local smoke test of dashboard

@@ -39,6 +39,24 @@
       "description": "Hourly air quality data pivoted wide per station-hour"
     },
     {
+      "name": "v_station_hourly_combined",
+      "file_path": "warehouse/analytics/v_station_hourly_combined.sql",
+      "stage": 2,
+      "order": 3,
+      "dependencies": ["v_openaq_deduped", "v_weather_deduped"],
+      "dataset": "analytics",
+      "description": "Hourly pollutants LEFT JOINed with weather at matching station/hour"
+    },
+    {
+      "name": "v_station_dispersion_outlook",
+      "file_path": "warehouse/analytics/v_station_dispersion_outlook.sql",
+      "stage": 2,
+      "order": 4,
+      "dependencies": ["v_openaq_deduped", "v_weather_deduped"],
+      "dataset": "analytics",
+      "description": "Future forecast hours with computed dispersion index"
+    },
+    {
       "name": "v_station_current_outlook",
       "file_path": "warehouse/analytics/v_station_current_outlook.sql",
       "stage": 2,

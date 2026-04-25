@@ -31,3 +31,23 @@ Append-only log of significant project events, decisions, and milestones.
 - **Impact**: Dev project now has all staging and analytics views deployed and validated.
 - **Key files**: RUNBOOK.md, warehouse/viz/create_analytics_views.sql (deleted)
 - **Verification**: validate-infra passed 18/18 checks, all views queryable.
+
+## 2026-04-20 — Turned RUNBOOK into a runnable bashfile
+- **What**: Converted RUNBOOK.md to executable bash script with validation checks (I have the thought of moving to Terraform after this).
+- **Why**: Automate deployment validation process (I tried the runbook as documentation but I realized I wanted to use it as an automated way to setup the cloud infrastructure).
+- **Impact**: Faster, more reliable deployment verification.
+- **Key files**: scripts/validate-infra.sh
+- **Verification**: Script executes all steps and validates results.
+
+## 2026-04-22 — Dashboard Data Plan: Steps 1-8 Completed
+- **What**: Implemented first 8 steps of dashboard redesign plan. Updated seed_core.sql fixtures, modified v_station_hourly_combined and v_station_dispersion_outlook views, added entries to view_manifest.json, created 5 new assertion SQL files, updated create_infra.sh, deployed new views to GCP dev.
+- **Why**: Foundation for dashboard redesign - new analytics views and corrected test fixtures.
+- **Impact**: All 25 warehouse view tests pass. Both new views deployed to GCP dev project (air-quality-test-490920) and ready for dashboard consumption.
+- **Key files**:
+  - tests/bq_views/fixtures/seed_core.sql (updated)
+  - warehouse/analytics/v_station_hourly_combined.sql (modified)
+  - warehouse/analytics/v_station_dispersion_outlook.sql (fixed)
+  - tests/bq_views/view_manifest.json (updated)
+  - tests/bq_views/assertions/* (5 new files)
+  - scripts/create_infra.sh (updated) - added v_station_hourly_combined and v_station_dispersion_outlook deployment in Step 8
+- **Notes**: BigQuery CLAMP replaced with LEAST/GREATEST; ${REFERENCE_TIMESTAMP} syntax corrected.

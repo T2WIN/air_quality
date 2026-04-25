@@ -122,6 +122,8 @@ envsubst < warehouse/analytics/v_station_current_outlook.sql | bq query --locati
 envsubst < warehouse/analytics/v_station_freshness.sql | bq query --location="$BQ_LOCATION" --project_id="$PROJECT_ID" --use_legacy_sql=false
 envsubst < warehouse/analytics/v_station_hourly_wide.sql | bq query --location="$BQ_LOCATION" --project_id="$PROJECT_ID" --use_legacy_sql=false
 envsubst < warehouse/analytics/v_station_latest_pollutants.sql | bq query --location="$BQ_LOCATION" --project_id="$PROJECT_ID" --use_legacy_sql=false
+envsubst < warehouse/analytics/v_station_hourly_combined.sql | bq query --location="$BQ_LOCATION" --project_id="$PROJECT_ID" --use_legacy_sql=false
+envsubst < warehouse/analytics/v_station_dispersion_outlook.sql | bq query --location="$BQ_LOCATION" --project_id="$PROJECT_ID" --use_legacy_sql=false
 
 # ------------------------------------------------------------------
 # 9 – Service accounts

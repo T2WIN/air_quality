@@ -20,19 +20,19 @@ WITH future_weather AS (
     w.cloud_cover,
     w.boundary_layer_height,
     COALESCE(
-      CLAMP(w.boundary_layer_height / 1500.0, 0, 1),
+      LEAST(GREATEST(w.boundary_layer_height / 1500.0, 0), 1),
       0
     ) AS blh_score,
     COALESCE(
-      CLAMP(w.wind_speed_10m / 25.0, 0, 1),
+      LEAST(GREATEST(w.wind_speed_10m / 25.0, 0), 1),
       0
     ) AS wind_score,
     COALESCE(
-      CLAMP(w.precipitation / 3.0, 0, 1),
+      LEAST(GREATEST(w.precipitation / 3.0, 0), 1),
       0
     ) AS precip_score
   FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` w
-  WHERE w.valid_time > TIMESTAMP '${REFERENCE_TIMESTAMP}'
+  WHERE w.valid_time > ${REFERENCE_TIMESTAMP}
 ),
 dispersion AS (
   SELECT

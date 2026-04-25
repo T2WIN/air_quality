@@ -174,36 +174,49 @@ INSERT INTO `${PROJECT_ID}.${BQ_RAW_DATASET}.weather_forecasts` (
    TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_c_2026-03-22T13:00:00'),
 
   -- Station A: +5h, +6h, +7h (future hours: 15:00, 16:00, 17:00 UTC)
-  -- 15:00 → blh=800, wind=8, precip=1.5 → poor (0.40)
+  -- 15:00 → blh=200, wind=3, precip=0 → score ~0.10 → poor
   ('station_a', 'weather_run_1', 52.5200, 13.4050,
    TIMESTAMP '2026-03-22 15:00:00 UTC',
-   16.0, 50.0, 1010.0, 8.0, 210.0, 1.5, 40.0, 800.0,
+   15.0, 55.0, 1010.0, 3.0, 200.0, 0.0, 50.0, 200.0,
    TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T15:00:00'),
 
-  -- 16:00 → blh=1400, wind=12, precip=1.5 → good (0.68)
+  -- 16:00 → blh=1200, wind=15, precip=2 → score ~0.70 → good
   ('station_a', 'weather_run_1', 52.5200, 13.4050,
    TIMESTAMP '2026-03-22 16:00:00 UTC',
-   17.0, 45.0, 1009.0, 12.0, 220.0, 1.5, 35.0, 1400.0,
+   18.0, 45.0, 1009.0, 15.0, 220.0, 2.0, 30.0, 1200.0,
    TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T16:00:00'),
 
-  -- 17:00 → blh=1300, wind=10, precip=1.5 → good (0.60)
+  -- 17:00 → blh=800, wind=8, precip=0.5 → score ~0.42 → fair
   ('station_a', 'weather_run_1', 52.5200, 13.4050,
    TIMESTAMP '2026-03-22 17:00:00 UTC',
-   16.5, 48.0, 1009.0, 10.0, 215.0, 1.5, 30.0, 1300.0,
+   17.0, 50.0, 1009.0, 8.0, 210.0, 0.5, 35.0, 800.0,
    TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T17:00:00'),
 
   -- Station A: +3h and +4h (overlap with pollutant hours for combined view)
-  -- 09:00 → blh=400, wind=3, precip=2 → fair (0.31)
+  -- 09:00 → blh=450, wind=4, precip=0.5 → fair
   ('station_a', 'weather_run_1', 52.5200, 13.4050,
    TIMESTAMP '2026-03-22 09:00:00 UTC',
-   8.0, 70.0, 1013.0, 3.0, 180.0, 2.0, 30.0, 400.0,
+   8.5, 68.0, 1013.0, 4.0, 180.0, 0.5, 25.0, 450.0,
    TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T09:00:00'),
 
-  -- 10:00 → blh=600, wind=5, precip=2 → fair (0.40)
+  -- 10:00 → temperature_2m=9.0, wind_speed_10m=4.5, boundary_layer_height=550.0 → fair
   ('station_a', 'weather_run_1', 52.5200, 13.4050,
    TIMESTAMP '2026-03-22 10:00:00 UTC',
-   10.0, 65.0, 1012.0, 5.0, 190.0, 2.0, 25.0, 600.0,
-   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T10:00:00');
+   9.0, 65.0, 1012.0, 4.5, 190.0, 0.5, 20.0, 550.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_a_2026-03-22T10:00:00'),
+
+  -- Station C: +5h, +6h (future hours for weather-only station)
+  -- 15:00 → blh=1000, wind=5, precip=0 → fair
+  ('station_c', 'weather_run_1', 48.1351, 11.5820,
+   TIMESTAMP '2026-03-22 15:00:00 UTC',
+   14.0, 55.0, 1010.0, 5.0, 170.0, 0.0, 20.0, 1000.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_c_2026-03-22T15:00:00'),
+
+  -- 16:00 → blh=1200, wind=7, precip=0 → good
+  ('station_c', 'weather_run_1', 48.1351, 11.5820,
+   TIMESTAMP '2026-03-22 16:00:00 UTC',
+   15.0, 50.0, 1009.0, 7.0, 180.0, 0.0, 15.0, 1200.0,
+   TIMESTAMP '2026-03-22 10:00:00 UTC', 'station_c_2026-03-22T16:00:00');
 
 -- ============================================================
 -- 5. Ingestion Log (for testing v_ingestion_overview)

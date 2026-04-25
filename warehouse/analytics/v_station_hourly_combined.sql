@@ -36,29 +36,17 @@ weather AS (
 )
 SELECT
   p.station_id,
-  p.openaq_location_id,
-  p.hour,
+  p.hour AS hour_utc,
   p.pm25_value,
-  p.pm25_unit,
   p.pm10_value,
-  p.pm10_unit,
   p.no2_value,
-  p.no2_unit,
   w.temperature_2m,
   w.relative_humidity_2m,
-  w.surface_pressure,
   w.wind_speed_10m,
   w.wind_direction_10m,
   w.precipitation,
   w.cloud_cover,
-  w.boundary_layer_height,
-  m.station_name,
-  m.locality,
-  m.country_code,
-  m.latitude,
-  m.longitude
+  w.boundary_layer_height
 FROM pollutants p
 LEFT JOIN weather w
-  ON p.station_id = w.station_id AND p.hour = w.hour
-LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
-  ON p.station_id = m.station_id;
+  ON p.station_id = w.station_id AND p.hour = w.hour;
