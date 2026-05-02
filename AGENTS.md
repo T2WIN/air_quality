@@ -35,6 +35,7 @@ scripts/            # validate-infra.sh — GCP infra health check
 - **SQL view placeholders**: Staging/analytics views use `${PROJECT_ID}`, `${BQ_RAW_DATASET}`, `${BQ_STAGING_DATASET}`, `${BQ_ANALYTICS_DATASET}`, `${REFERENCE_TIMESTAMP}` — rendered by `envsubst` at deploy or by the test runner's `render_sql_template`.
 - **Idempotency**: Every pipeline step must be safe to re-run. Raw tables use `dedup_key` + staging views dedup via `ROW_NUMBER()`. DDL uses `CREATE TABLE IF NOT EXISTS` / `CREATE OR REPLACE VIEW`.
 - **Env vars**: .env contains all required vars but it doesn't contain secrets. Secrets are managed by GCP Secret Manager.
+- When you need to search docs for libraries or Cloud, use `context7` tools.
 
 ## Commands
 
