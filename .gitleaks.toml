@@ -1,0 +1,14 @@
+title = "air-quality-platform gitleaks config"
+
+[allowlist]
+description = "Placeholders and test fixtures that look like secrets"
+
+paths = [
+    '''warehouse\/.*\.sql''',
+    '''tests\/bq_views\/.*''',
+]
+
+regexes = [
+    '''\$\{[A-Z_]+\}''',
+    '''key\s*=\s*["']?test["']?''',
+]
