@@ -20,7 +20,8 @@ WITH latest_per_pollutant AS (
   WHERE pollutant IN ('pm25', 'pm10', 'no2')
 ),
 latest_filtered AS (
-  SELECT * FROM latest_per_pollutant WHERE rn = 1
+  SELECT * FROM latest_per_pollutant
+WHERE rn = 1
 ),
 pivoted AS (
   SELECT
@@ -46,6 +47,6 @@ SELECT
   m.country_code,
   m.latitude,
   m.longitude
-FROM pivoted p
-LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
-  USING (station_id);
+FROM pivoted AS p
+LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` AS m
+  ON p.station_id = m.station_id;

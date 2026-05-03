@@ -52,10 +52,10 @@ outlook_weather AS (
     SUM(w.precipitation) AS total_precipitation,
     MAX(w.wind_speed_10m) AS max_wind_speed_10m,
     COUNT(w.valid_time) AS forecast_hours_count
-  FROM weather_basis wb
-  LEFT JOIN `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` w
+  FROM weather_basis AS wb
+  LEFT JOIN `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` AS w
     ON wb.station_id = w.station_id
-    AND w.valid_time > wb.latest_weather_ingested_at
+    AND wb.latest_weather_ingested_at < w.valid_time
     AND w.valid_time <= TIMESTAMP_ADD(wb.latest_weather_ingested_at, INTERVAL 3 HOUR)
   GROUP BY wb.station_id, wb.latest_weather_ingested_at
 )
@@ -75,15 +75,15 @@ SELECT
   ow.total_precipitation,
   ow.max_wind_speed_10m,
   -- Count of forecast hours in the 3h window (0 if no weather data)
-  COALESCE(ow.forecast_hours_count, 0) AS forecast_hours_count,
-  -- Station metadata
   m.station_name,
+  -- Station metadata
   m.locality,
   m.country_code,
   m.latitude,
-  m.longitude
-FROM latest_pollutants lp
-LEFT JOIN outlook_weather ow
+  m.longitude,
+  COALESCE(ow.forecast_hours_count, 0) AS forecast_hours_count
+FROM latest_pollutants AS lp
+LEFT JOIN outlook_weather AS ow
   ON lp.station_id = ow.station_id
-LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
+LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` AS m
   ON lp.station_id = m.station_id;

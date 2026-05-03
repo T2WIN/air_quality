@@ -57,7 +57,7 @@ SELECT
   COALESCE(a.total_records_24h, 0) AS total_records_24h,
   COALESCE(a.total_api_calls_24h, 0) AS total_api_calls_24h,
   COALESCE(a.total_api_errors_24h, 0) AS total_api_errors_24h
-FROM latest_runs lr
-LEFT JOIN aggregates_24h a
+FROM latest_runs AS lr
+LEFT JOIN aggregates_24h AS a
   ON lr.source = a.source
 WHERE lr.rn = 1;

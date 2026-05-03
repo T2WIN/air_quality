@@ -32,8 +32,8 @@ SELECT
   m.latitude,
   m.longitude,
   -- Staleness flags (tunable thresholds)
-  CASE WHEN fc.hours_since_data > 2 THEN TRUE ELSE FALSE END AS is_data_stale,
-  CASE WHEN fc.hours_since_ingestion > 4 THEN TRUE ELSE FALSE END AS is_ingestion_stale
-FROM freshness_calc fc
-LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
-  USING (station_id);
+  COALESCE(fc.hours_since_data > 2, FALSE) AS is_data_stale,
+  COALESCE(fc.hours_since_ingestion > 4, FALSE) AS is_ingestion_stale
+FROM freshness_calc AS fc
+LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` AS m
+  ON fc.station_id = m.station_id;

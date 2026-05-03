@@ -31,7 +31,7 @@ WITH future_weather AS (
       LEAST(GREATEST(w.precipitation / 3.0, 0), 1),
       0
     ) AS precip_score
-  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` w
+  FROM `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` AS w
   WHERE w.valid_time > ${REFERENCE_TIMESTAMP}
 ),
 dispersion AS (
@@ -91,7 +91,7 @@ SELECT
   m.station_name,
   m.locality,
   m.country_code
-FROM dispersion d
-LEFT JOIN latest_pm p USING (station_id)
-LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` m
+FROM dispersion AS d
+LEFT JOIN latest_pm AS p ON d.station_id = p.station_id
+LEFT JOIN `${PROJECT_ID}.${BQ_RAW_DATASET}.station_metadata` AS m
   ON d.station_id = m.station_id;

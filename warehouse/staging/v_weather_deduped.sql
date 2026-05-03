@@ -4,8 +4,7 @@
 -- ============================================================
 
 CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_weather_deduped` AS
-SELECT
-  * EXCEPT(rn)
+SELECT * EXCEPT (rn)
 FROM (
   SELECT
     *,

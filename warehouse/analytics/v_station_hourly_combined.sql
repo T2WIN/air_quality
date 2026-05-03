@@ -47,6 +47,6 @@ SELECT
   w.precipitation,
   w.cloud_cover,
   w.boundary_layer_height
-FROM pollutants p
-LEFT JOIN weather w
+FROM pollutants AS p
+LEFT JOIN weather AS w
   ON p.station_id = w.station_id AND p.hour = w.hour;

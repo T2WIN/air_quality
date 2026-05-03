@@ -5,8 +5,7 @@
 
 CREATE OR REPLACE VIEW `${PROJECT_ID}.${BQ_STAGING_DATASET}.v_openaq_deduped`
 AS
-SELECT
-  * EXCEPT(rn)
+SELECT * EXCEPT (rn)
 FROM (
   SELECT
     *,
