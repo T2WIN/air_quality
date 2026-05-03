@@ -229,3 +229,120 @@ class TestWaitCalculation:
         # The wait should be close to the full minute window since all entries
         # were recorded at time 0
         assert sleep_durations[0] >= 59.0, f"Expected ~60s wait, got {sleep_durations[0]}"
+
+
+class TestAdditionalCoverage:
+    """Tests covering remaining branches (hour eviction, count>1 wait, full eviction)."""
+
+    def test_hour_window_eviction(self) -> None:
+        limiter = DualWindowRateLimiter(per_minute=1000, per_hour=5)
+        current_time: list[float] = [0.0]
+        sleep_durations: list[float] = []
+
+        def fake_monotonic() -> float:
+            return current_time[0]
+
+        def fake_sleep(duration: float) -> None:
+            sleep_durations.append(duration)
+            current_time[0] += duration
+
+        with (
+            patch("ingestion.shared.rate_limiter.time.monotonic", fake_monotonic),
+            patch("ingestion.shared.rate_limiter.time.sleep", fake_sleep),
+        ):
+            for _ in range(5):
+                limiter.acquire()
+            assert len(limiter._hour_calls) == 5
+
+            current_time[0] = 3601.0
+            limiter.acquire()
+
+            assert len(limiter._hour_calls) == 1
+
+    def test_minute_window_wait_with_count_greater_than_one(self) -> None:
+        limiter = DualWindowRateLimiter(per_minute=5, per_hour=1000)
+        current_time: list[float] = [0.0]
+        sleep_durations: list[float] = []
+
+        def fake_monotonic() -> float:
+            return current_time[0]
+
+        def fake_sleep(duration: float) -> None:
+            sleep_durations.append(duration)
+            current_time[0] += duration
+
+        with (
+            patch("ingestion.shared.rate_limiter.time.monotonic", fake_monotonic),
+            patch("ingestion.shared.rate_limiter.time.sleep", fake_sleep),
+        ):
+            limiter.acquire()  # t=0
+            current_time[0] = 10.0
+            limiter.acquire()  # t=10
+            current_time[0] = 20.0
+            limiter.acquire()  # t=20
+            current_time[0] = 30.0
+            limiter.acquire()  # t=30
+            current_time[0] = 40.0
+            limiter.acquire()  # t=40
+
+            limiter.acquire(count=2)  # need_to_free=2, idx=1 → wait ~30s
+
+        assert len(sleep_durations) >= 1
+        assert 29.0 <= sleep_durations[0] <= 31.0, (
+            f"Expected ~30s wait (until entry at t=10 expires), got {sleep_durations[0]}"
+        )
+
+    def test_advance_time_triggers_eviction(self) -> None:
+        limiter = DualWindowRateLimiter(per_minute=5, per_hour=5)
+        current_time: list[float] = [0.0]
+        sleep_durations: list[float] = []
+
+        def fake_monotonic() -> float:
+            return current_time[0]
+
+        def fake_sleep(duration: float) -> None:
+            sleep_durations.append(duration)
+            current_time[0] += duration
+
+        with (
+            patch("ingestion.shared.rate_limiter.time.monotonic", fake_monotonic),
+            patch("ingestion.shared.rate_limiter.time.sleep", fake_sleep),
+        ):
+            for _ in range(5):
+                limiter.acquire()
+            assert len(limiter._minute_calls) == 5
+            assert len(limiter._hour_calls) == 5
+
+            current_time[0] = 3601.0
+            limiter.acquire()
+
+            assert len(sleep_durations) == 0
+            assert len(limiter._minute_calls) == 1
+            assert len(limiter._hour_calls) == 1
+
+    def test_hour_window_wait_calculation(self) -> None:
+        limiter = DualWindowRateLimiter(per_minute=100, per_hour=5)
+        current_time: list[float] = [0.0]
+        sleep_durations: list[float] = []
+
+        def fake_monotonic() -> float:
+            return current_time[0]
+
+        def fake_sleep(duration: float) -> None:
+            sleep_durations.append(duration)
+            current_time[0] += duration
+
+        with (
+            patch("ingestion.shared.rate_limiter.time.monotonic", fake_monotonic),
+            patch("ingestion.shared.rate_limiter.time.sleep", fake_sleep),
+        ):
+            for _ in range(5):
+                limiter.acquire()
+
+            current_time[0] = 61.0
+            limiter.acquire()
+
+        assert len(sleep_durations) >= 1
+        assert sleep_durations[0] == 3539.0, (
+            f"Expected 3539s wait (need_to_free=1, oldest hour entry at t=0), got {sleep_durations[0]}"
+        )

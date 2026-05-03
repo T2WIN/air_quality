@@ -7,3 +7,4 @@ NEXT_TO_DO.md
 air_quality_platform.egg-info
 tests/bq_views/.reports/
 opencode.json
+.coverage

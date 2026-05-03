@@ -67,7 +67,7 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["ingestion/shared"]
+source = ["ingestion"]
 
 [tool.coverage.report]
 fail_under = 80

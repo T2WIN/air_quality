@@ -283,7 +283,7 @@ def _fetch_batch_with_retry(
                 progress.record_retry()
                 sleep_time = backoff_seconds(attempt)
                 logging.warning(
-                    "Network error run_id=%s attempt=%s/%s  error=%s  wait=%.1fs",
+                    "Network error attempt=%s/%s  error=%s  wait=%.1fs",
                     attempt,
                     config.max_http_attempts,
                     exc,
