@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from google.cloud import bigquery
 
 from .datetime_utils import to_rfc3339_z, utc_now
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +28,17 @@ def write_ingestion_log(
     run_started_at: datetime,
     run_finished_at: datetime,
     records_written: int,
-    sensors_queried: Optional[int],
-    sensors_failed: Optional[int],
-    stations_polled: Optional[int],
-    stations_failed: Optional[int],
+    sensors_queried: int | None,
+    sensors_failed: int | None,
+    stations_polled: int | None,
+    stations_failed: int | None,
     api_calls: int,
     api_errors: int,
-    window_start: Optional[datetime],
-    window_end: Optional[datetime],
-    error_message: Optional[str],
-    failed_sensor_ids: Optional[list[dict[str, Any]]],
-    failed_station_ids: Optional[list[str]],
+    window_start: datetime | None,
+    window_end: datetime | None,
+    error_message: str | None,
+    failed_sensor_ids: list[dict[str, Any]] | None,
+    failed_station_ids: list[str] | None,
 ) -> None:
     """Write a row to the ingestion_log table.
 

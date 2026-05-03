@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 def utc_now() -> datetime:
     """Return the current UTC datetime."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def to_rfc3339_z(dt: datetime) -> str:
@@ -18,10 +18,10 @@ def to_rfc3339_z(dt: datetime) -> str:
     Converts +00:00 timezone offset to 'Z' for consistency.
     Example: 2024-01-15T10:30:00+00:00 -> 2024-01-15T10:30:00Z
     """
-    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def parse_timestamp(ts: Optional[str]) -> Optional[datetime]:
+def parse_timestamp(ts: str | None) -> datetime | None:
     """Parse an RFC3339 or ISO format timestamp string to datetime."""
     if not ts:
         return None
@@ -39,7 +39,7 @@ def build_run_id(run_started_at: datetime) -> str:
 
 def deep_get(obj: dict[str, Any], *keys: str) -> Any:
     """Safely navigate nested dicts and return None if any key is missing."""
-    cur = obj
+    cur: Any = obj
     for key in keys:
         if not isinstance(cur, dict):
             return None
@@ -61,7 +61,7 @@ def parse_csv_env(raw: str | None) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def parse_optional_int(value: Optional[str]) -> Optional[int]:
+def parse_optional_int(value: str | None) -> int | None:
     """Parse an optional integer from a string."""
     if value is None or value == "":
         return None

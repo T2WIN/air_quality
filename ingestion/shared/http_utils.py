@@ -1,8 +1,10 @@
-import threading
-from datetime import timezone
-from email.utils import parsedate_to_datetime
 import random
+import threading
+from datetime import UTC
+from email.utils import parsedate_to_datetime
+
 import requests
+
 from .datetime_utils import utc_now
 
 _thread_local = threading.local()
@@ -45,7 +47,7 @@ def get_session(
 
         setattr(_thread_local, attr_name, session)
 
-    return getattr(_thread_local, attr_name)
+    return getattr(_thread_local, attr_name)  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -64,23 +66,17 @@ def _parse_retry_after(value: str | None) -> float | None:
     try:
         dt = parsedate_to_datetime(value)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return max(
-            0.0, (dt.astimezone(timezone.utc) - utc_now()).total_seconds()
-        )
+            dt = dt.replace(tzinfo=UTC)
+        return max(0.0, (dt.astimezone(UTC) - utc_now()).total_seconds())
     except Exception:
         return None
 
 
-def backoff_seconds(
-    attempt: int, response: requests.Response | None = None
-) -> float:
+def backoff_seconds(attempt: int, response: requests.Response | None = None) -> float:
     """Exponential back-off with jitter, honouring Retry-After if present."""
     if response is not None:
-        retry_after = _parse_retry_after(
-            response.headers.get("Retry-After")
-        )
+        retry_after = _parse_retry_after(response.headers.get("Retry-After"))
         if retry_after is not None:
             return retry_after
     base = min(2 ** (attempt - 1), 30)
-    return base + random.uniform(0, 0.5)
+    return base + random.uniform(0, 0.5)  # type: ignore[no-any-return]

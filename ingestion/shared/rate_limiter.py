@@ -28,15 +28,9 @@ class DualWindowRateLimiter:
         self._lock = threading.Lock()
 
     def _evict_old(self, now: float) -> None:
-        while (
-            self._minute_calls
-            and now - self._minute_calls[0] >= self._minute_window
-        ):
+        while self._minute_calls and now - self._minute_calls[0] >= self._minute_window:
             self._minute_calls.popleft()
-        while (
-            self._hour_calls
-            and now - self._hour_calls[0] >= self._hour_window
-        ):
+        while self._hour_calls and now - self._hour_calls[0] >= self._hour_window:
             self._hour_calls.popleft()
 
     def acquire(self, count: int = 1) -> None:
@@ -57,13 +51,11 @@ class DualWindowRateLimiter:
             raise ValueError(f"count must be >= 1, got {count}")
         if count > self.per_minute:
             raise ValueError(
-                f"count={count} exceeds per_minute limit={self.per_minute} "
-                f"(would block forever)"
+                f"count={count} exceeds per_minute limit={self.per_minute} (would block forever)"
             )
         if count > self.per_hour:
             raise ValueError(
-                f"count={count} exceeds per_hour limit={self.per_hour} "
-                f"(would block forever)"
+                f"count={count} exceeds per_hour limit={self.per_hour} (would block forever)"
             )
 
         while True:
@@ -88,25 +80,17 @@ class DualWindowRateLimiter:
                     # We need to free up enough entries so that
                     # len(deque) + count <= per_minute.
                     # The number of entries that must expire:
-                    need_to_free = (
-                        len(self._minute_calls) + count - self.per_minute
-                    )
+                    need_to_free = len(self._minute_calls) + count - self.per_minute
                     # Wait until the need_to_free-th oldest entry expires
                     idx = need_to_free - 1
                     if idx < len(self._minute_calls):
-                        wait_minute = self._minute_window - (
-                            now - self._minute_calls[idx]
-                        )
+                        wait_minute = self._minute_window - (now - self._minute_calls[idx])
 
                 if not hour_ok:
-                    need_to_free = (
-                        len(self._hour_calls) + count - self.per_hour
-                    )
+                    need_to_free = len(self._hour_calls) + count - self.per_hour
                     idx = need_to_free - 1
                     if idx < len(self._hour_calls):
-                        wait_hour = self._hour_window - (
-                            now - self._hour_calls[idx]
-                        )
+                        wait_hour = self._hour_window - (now - self._hour_calls[idx])
 
                 sleep_for = max(wait_minute, wait_hour, 0.05)
 

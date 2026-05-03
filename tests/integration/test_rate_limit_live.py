@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 import threading
+import time
 from collections import Counter
+from collections.abc import Hashable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from typing import Any
 
 import requests
 from google.cloud import secretmanager
@@ -26,7 +28,6 @@ from google.cloud import secretmanager
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from ingestion.shared import DualWindowRateLimiter
-
 
 # ---------------------------------------------------------------------------
 # Secret Manager fallback
@@ -97,13 +98,12 @@ class TestReport:
         with self.lock:
             self.records.append(record)
 
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, Any]:
         total = len(self.records)
         status_counter = Counter(r.status_code for r in self.records)
         count_429 = status_counter.get(429, 0)
         other_errors = sum(
-            v for k, v in status_counter.items()
-            if k is None or (k >= 400 and k != 429)
+            v for k, v in status_counter.items() if k is None or (k >= 400 and k != 429)
         )
 
         # Compute max requests in any 60s sliding window
@@ -117,8 +117,7 @@ class TestReport:
 
         # Distinct status codes with counts
         status_breakdown = {
-            str(k) if k is not None else "error": v
-            for k, v in sorted(status_counter.items())
+            str(k) if k is not None else "error": v for k, v in sorted(status_counter.items())
         }
 
         return {
@@ -176,7 +175,7 @@ def _timeline_buckets(bucket_size: float) -> list[tuple[float, int]]:
     if t_max == t_min:
         return [(t_min, len(timestamps))]
 
-    buckets: Counter = Counter()
+    buckets: Counter[int] = Counter()
     for t in timestamps:
         bucket_idx = int((t - t_min) / bucket_size)
         buckets[bucket_idx] += 1
@@ -296,8 +295,7 @@ def main() -> int:
 
     with ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
         futures = {
-            executor.submit(_worker, tid, rate_limiter, session): tid
-            for tid in range(THREAD_COUNT)
+            executor.submit(_worker, tid, rate_limiter, session): tid for tid in range(THREAD_COUNT)
         }
         for future in as_completed(futures):
             tid = futures[future]
@@ -313,7 +311,9 @@ def main() -> int:
     _print_report(_global_report)
 
     has_429 = any(r.status_code == 429 for r in _global_report.records)
-    has_errors = any(r.status_code is not None and r.status_code >= 400 for r in _global_report.records)
+    has_errors = any(
+        r.status_code is not None and r.status_code >= 400 for r in _global_report.records
+    )
 
     if has_429:
         print("\nFAILED: Received HTTP 429 responses — rate limiter did not prevent throttling")

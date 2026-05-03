@@ -14,7 +14,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import requests
 from google.cloud import bigquery
@@ -33,7 +33,6 @@ from ingestion.shared import (
     utc_now,
     write_ingestion_log,
 )
-
 
 # ---------------------------------------------------------------------------
 # TypedDicts for complex data structures
@@ -106,9 +105,11 @@ class FailedSensor(TypedDict):
     error_type: str
     error_message: str
 
+
 @dataclass
 class PollingResult:
     """Accumulated metrics and data from polling all sensors."""
+
     rows: list[HourRow] = field(default_factory=list)
     sensors_with_data: set[int] = field(default_factory=set)
     stations_with_data: set[int] = field(default_factory=set)
@@ -203,19 +204,12 @@ class Config:
 
         return cls(
             project_id=project_id,
-            raw_dataset=os.getenv(
-                "BQ_RAW_DATASET", "air_quality_raw"
-            ),
-            station_sensors_table=os.getenv(
-                "BQ_STATION_SENSORS_TABLE", "station_sensors"
-            ),
+            raw_dataset=os.getenv("BQ_RAW_DATASET", "air_quality_raw"),
+            station_sensors_table=os.getenv("BQ_STATION_SENSORS_TABLE", "station_sensors"),
             hourly_table=os.getenv("BQ_OPENAQ_HOURLY_TABLE", "openaq_hourly"),
             bq_location=os.getenv("BQ_LOCATION", "EU"),
-            openaq_base_url=os.getenv(
-                "OPENAQ_BASE_URL", "https://api.openaq.org/v3"
-            ).rstrip("/"),
-            openaq_api_key=os.getenv("OPENAQ_API_KEY")
-            or None,
+            openaq_base_url=os.getenv("OPENAQ_BASE_URL", "https://api.openaq.org/v3").rstrip("/"),
+            openaq_api_key=os.getenv("OPENAQ_API_KEY") or None,
             lookback_hours=int(os.getenv("LOOKBACK_HOURS", "3")),
             max_workers=int(os.getenv("MAX_WORKERS", "8")),
             http_timeout_seconds=int(os.getenv("HTTP_TIMEOUT_SECONDS", "30")),
@@ -224,18 +218,12 @@ class Config:
             enforce_complete_hours=_parse_bool_env(
                 os.getenv("ENFORCE_COMPLETE_HOURS"), default=True
             ),
-            required_pollutants=parse_csv_env(os.getenv("TARGET_POLLUTANTS", DEFAULT_REQUIRED_POLLUTANTS)),
-            openaq_rate_limit_per_minute=int(
-                os.getenv("OPENAQ_RATE_LIMIT_PER_MINUTE", "60")
-            ),
-            openaq_rate_limit_per_hour=int(
-                os.getenv("OPENAQ_RATE_LIMIT_PER_HOUR", "2000")
-            ),
+            required_pollutants=parse_csv_env(os.getenv("TARGET_POLLUTANTS")) or DEFAULT_REQUIRED_POLLUTANTS,
+            openaq_rate_limit_per_minute=int(os.getenv("OPENAQ_RATE_LIMIT_PER_MINUTE", "60")),
+            openaq_rate_limit_per_hour=int(os.getenv("OPENAQ_RATE_LIMIT_PER_HOUR", "2000")),
             max_http_attempts=int(os.getenv("MAX_HTTP_ATTEMPTS", "5")),
             progress_log_every=int(os.getenv("PROGRESS_LOG_EVERY", "25")),
-            progress_log_interval_seconds=int(
-                os.getenv("PROGRESS_LOG_INTERVAL_SECONDS", "30")
-            ),
+            progress_log_interval_seconds=int(os.getenv("PROGRESS_LOG_INTERVAL_SECONDS", "30")),
         )
 
 
@@ -244,9 +232,7 @@ class Config:
 # ---------------------------------------------------------------------------
 
 
-def get_query_window(
-    now: datetime, lookback_hours: int
-) -> tuple[datetime, datetime]:
+def get_query_window(now: datetime, lookback_hours: int) -> tuple[datetime, datetime]:
     """Return (start, end) covering the last *lookback_hours* complete
     clock hours.  Example at 10:05 UTC with lookback=3 → (07:00, 10:00).
     """
@@ -260,9 +246,7 @@ def get_query_window(
 # ---------------------------------------------------------------------------
 
 
-def load_station_sensors(
-    config: Config, bq_client: bigquery.Client
-) -> list[Sensor]:
+def load_station_sensors(config: Config, bq_client: bigquery.Client) -> list[Sensor]:
     """Return the list of sensors to poll.
 
     Only stations that report **all** required pollutants are included.
@@ -286,23 +270,15 @@ def load_station_sensors(
         WHERE s.parameter_name IN UNNEST(@pollutants)
     """
 
-    query_parameters: list[
-        bigquery.ScalarQueryParameter | bigquery.ArrayQueryParameter
-    ] = [
-        bigquery.ArrayQueryParameter(
-            "pollutants", "STRING", config.required_pollutants
-        ),
-        bigquery.ScalarQueryParameter(
-            "pollutant_count", "INT64", len(config.required_pollutants)
-        ),
+    query_parameters: list[bigquery.ScalarQueryParameter | bigquery.ArrayQueryParameter] = [
+        bigquery.ArrayQueryParameter("pollutants", "STRING", config.required_pollutants),
+        bigquery.ScalarQueryParameter("pollutant_count", "INT64", len(config.required_pollutants)),
     ]
 
     if config.dev_station_ids:
         sql += "\nAND s.station_id IN UNNEST(@station_ids)"
         query_parameters.append(
-            bigquery.ArrayQueryParameter(
-                "station_ids", "STRING", config.dev_station_ids
-            )
+            bigquery.ArrayQueryParameter("station_ids", "STRING", config.dev_station_ids)
         )
 
     sql += "\nORDER BY s.station_id, pollutant, openaq_sensor_id"
@@ -310,9 +286,7 @@ def load_station_sensors(
     job_config = bigquery.QueryJobConfig(query_parameters=query_parameters)
     rows = [
         dict(row)
-        for row in bq_client.query(
-            sql, job_config=job_config, location=config.bq_location
-        ).result()
+        for row in bq_client.query(sql, job_config=job_config, location=config.bq_location).result()
     ]
 
     if config.max_sensors is not None:
@@ -323,7 +297,7 @@ def load_station_sensors(
         len(rows),
         config.required_pollutants,
     )
-    return rows
+    return rows  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -344,14 +318,12 @@ def _append_rows_to_bigquery(
         logging.info("No rows to write to BigQuery rows=0")
         return 0
 
-    table_id = (
-        f"{config.project_id}.{config.raw_dataset}.{config.hourly_table}"
-    )
+    table_id = f"{config.project_id}.{config.raw_dataset}.{config.hourly_table}"
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
     )
     load_job = bq_client.load_table_from_json(
-        rows,
+        rows,  # type: ignore[arg-type]
         table_id,
         job_config=job_config,
         location=config.bq_location,
@@ -377,9 +349,9 @@ def _transform_hour_row(
     period = hour_payload["period"]
     coverage = hour_payload["coverage"]
 
-    period_from_utc = deep_get(period, "datetimeFrom", "utc")
-    period_to_utc = deep_get(period, "datetimeTo", "utc")
-    period_from_local = deep_get(period, "datetimeFrom", "local")
+    period_from_utc = deep_get(period, "datetimeFrom", "utc")  # type: ignore[arg-type]
+    period_to_utc = deep_get(period, "datetimeTo", "utc")  # type: ignore[arg-type]
+    period_from_local = deep_get(period, "datetimeFrom", "local")  # type: ignore[arg-type]
     value = hour_payload.get("value")
 
     if period_from_utc is None or period_to_utc is None or value is None:
@@ -429,12 +401,12 @@ def _fetch_sensor_hours(
     run_id: str,
     rate_limiter: DualWindowRateLimiter,
     progress: ProgressTracker,
-    session : requests.Session
+    session: requests.Session,
 ) -> list[HourRow]:
     sensor_id = sensor["openaq_sensor_id"]
 
     url = f"{config.openaq_base_url}/sensors/{sensor_id}/hours"
-    params = {
+    params: dict[str, object] = {
         "datetime_from": to_rfc3339_z(window_start),
         "datetime_to": to_rfc3339_z(window_end),
         "limit": 24,
@@ -446,9 +418,7 @@ def _fetch_sensor_hours(
         progress.record_http_attempt()
 
         try:
-            response = session.get(
-                url, params=params, timeout=config.http_timeout_seconds
-            )
+            response = session.get(url, params=params, timeout=config.http_timeout_seconds)  # type: ignore[arg-type]
 
             # ---- retryable HTTP status ----
             if response.status_code in RETRYABLE_STATUS_CODES:
@@ -524,17 +494,16 @@ def _fetch_sensor_hours(
             )
             time.sleep(delay)
 
-    raise RuntimeError(
-        f"Exhausted {config.max_http_attempts} attempts for sensor_id={sensor_id}"
-    )
+    raise RuntimeError(f"Exhausted {config.max_http_attempts} attempts for sensor_id={sensor_id}")
 
 
 # ---------------------------------------------------------------------------
 # Main poller orchestrator
 # ---------------------------------------------------------------------------
 
+
 def _collect_future_result(
-    future,
+    future: Any,
     sensor: Sensor,
     result: PollingResult,
     progress: ProgressTracker,
@@ -559,7 +528,10 @@ def _collect_future_result(
         progress.record_failure()
         logging.exception(
             "Failed  sensor_id=%s  station_id=%s  pollutant=%s  error=%s",
-            sensor_id, sensor["station_id"], sensor["pollutant"], exc,
+            sensor_id,
+            sensor["station_id"],
+            sensor["pollutant"],
+            exc,
         )
         return
 
@@ -570,6 +542,7 @@ def _collect_future_result(
         result.sensors_with_data.add(sensor_id)
         for row in rows:
             result.stations_with_data.add(row["station_id"])
+
 
 def _poll_sensors(
     config: Config,
@@ -591,9 +564,7 @@ def _poll_sensors(
     session = get_session(
         pool_connections=config.max_workers,
         pool_maxsize=config.max_workers,
-        extra_headers={"X-API-Key": config.openaq_api_key}
-        if config.openaq_api_key
-        else None,
+        extra_headers={"X-API-Key": config.openaq_api_key} if config.openaq_api_key else None,
     )
     rate_limiter = DualWindowRateLimiter(
         per_minute=config.openaq_rate_limit_per_minute,
@@ -610,7 +581,8 @@ def _poll_sensors(
     worker_count = min(config.max_workers, max(1, result.sensors_queried))
     logging.info(
         "Querying %s sensors  workers=%s  rate_limit=%s/min %s/hour",
-        result.sensors_queried, worker_count,
+        result.sensors_queried,
+        worker_count,
         config.openaq_rate_limit_per_minute,
         config.openaq_rate_limit_per_hour,
     )
@@ -620,8 +592,15 @@ def _poll_sensors(
             future_to_sensor = {
                 executor.submit(
                     _fetch_sensor_hours,
-                    config, sensor, window_start, window_end,
-                    ingested_at, run_id, rate_limiter, progress, session,
+                    config,
+                    sensor,
+                    window_start,
+                    window_end,
+                    ingested_at,
+                    run_id,
+                    rate_limiter,
+                    progress,
+                    session,
                 ): sensor
                 for sensor in sensors
             }
@@ -633,6 +612,7 @@ def _poll_sensors(
         progress.stop()
 
     return result
+
 
 def _persist_rows(
     config: Config,
@@ -650,6 +630,7 @@ def _persist_rows(
         logging.exception("BigQuery write failed: %s", error)
         return 0, error
 
+
 def _determine_status(
     polling: PollingResult,
     bq_write_error: str | None,
@@ -666,6 +647,7 @@ def _determine_status(
         return "partial_success", None
     return "success", None
 
+
 def _log_run(
     bq_client: bigquery.Client,
     config: Config,
@@ -680,9 +662,7 @@ def _log_run(
     error_message: str | None,
 ) -> None:
     """Persist an ingestion-log row to BigQuery."""
-    failed_sensor_id_list = [
-        str(fs["sensor_id"]) for fs in polling.failed_sensors
-    ]
+    failed_sensor_id_list = [str(fs["sensor_id"]) for fs in polling.failed_sensors]
 
     write_ingestion_log(
         bq_client=bq_client,
@@ -703,9 +683,10 @@ def _log_run(
         window_start=window_start,
         window_end=window_end,
         error_message=error_message,
-        failed_sensor_ids=failed_sensor_id_list or None,
+        failed_sensor_ids=failed_sensor_id_list or None,  # type: ignore[arg-type]
         failed_station_ids=None,
     )
+
 
 def _build_summary(
     run_id: str,
@@ -719,9 +700,7 @@ def _build_summary(
     error_message: str | None,
 ) -> PollerSummary:
     """Assemble the final summary dict returned to the caller."""
-    timestamps = [
-        r["period_from_utc"] for r in polling.rows if r.get("period_from_utc")
-    ]
+    timestamps = [r["period_from_utc"] for r in polling.rows if r.get("period_from_utc")]
 
     return {
         "source": "openaq",
@@ -749,13 +728,13 @@ def run_poller(config: Config, bq_client: bigquery.Client) -> PollerSummary:
     run_started_at = utc_now()
     ingested_at = to_rfc3339_z(run_started_at)
     run_id = build_run_id(run_started_at)
-    window_start, window_end = get_query_window(
-        run_started_at, config.lookback_hours
-    )
+    window_start, window_end = get_query_window(run_started_at, config.lookback_hours)
 
     logging.info(
         "Starting poller  run_id=%s  window=[%s, %s)",
-        run_id, to_rfc3339_z(window_start), to_rfc3339_z(window_end),
+        run_id,
+        to_rfc3339_z(window_start),
+        to_rfc3339_z(window_end),
     )
 
     polling = PollingResult()
@@ -765,10 +744,17 @@ def run_poller(config: Config, bq_client: bigquery.Client) -> PollerSummary:
 
     try:
         polling = _poll_sensors(
-            config, bq_client, run_id, ingested_at, window_start, window_end,
+            config,
+            bq_client,
+            run_id,
+            ingested_at,
+            window_start,
+            window_end,
         )
         records_written, bq_write_error = _persist_rows(
-            config, bq_client, polling.rows,
+            config,
+            bq_client,
+            polling.rows,
         )
     except Exception as exc:
         unhandled_exception = exc
@@ -776,34 +762,48 @@ def run_poller(config: Config, bq_client: bigquery.Client) -> PollerSummary:
     finally:
         run_finished_at = utc_now()
         status, error_message = _determine_status(
-            polling, bq_write_error, unhandled_exception,
+            polling,
+            bq_write_error,
+            unhandled_exception,
         )
         _log_run(
-            bq_client, config, run_id,
-            run_started_at, run_finished_at,
-            window_start, window_end,
-            records_written, polling, status, error_message,
+            bq_client,
+            config,
+            run_id,
+            run_started_at,
+            run_finished_at,
+            window_start,
+            window_end,
+            records_written,
+            polling,
+            status,
+            error_message,
         )
 
     summary = _build_summary(
-        run_id, ingested_at, config,
-        window_start, window_end,
-        polling, records_written, status, error_message,
+        run_id,
+        ingested_at,
+        config,
+        window_start,
+        window_end,
+        polling,
+        records_written,
+        status,
+        error_message,
     )
     logging.info("Completed run  summary=%s", summary)
-    return summary   
+    return summary
 
 
 # ---------------------------------------------------------------------------
 # Local dev entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
     try:
         config = Config.from_env()
-        bq_client = bigquery.Client(
-            project=config.project_id, location=config.bq_location
-        )
+        bq_client = bigquery.Client(project=config.project_id, location=config.bq_location)
         summary = run_poller(config, bq_client)
         if summary["status"] not in ("success", "empty"):
             logging.warning("OpenAQ poller completed with status=%s", summary["status"])

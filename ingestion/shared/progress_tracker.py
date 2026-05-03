@@ -3,7 +3,6 @@
 import logging
 import threading
 import time
-from typing import Optional
 
 
 class ProgressTracker:
@@ -40,7 +39,7 @@ class ProgressTracker:
 
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
         # Dedup / throttle guards
         self._last_logged_completed = 0
@@ -51,8 +50,7 @@ class ProgressTracker:
     def start(self) -> None:
         """Start the background heartbeat thread."""
         logging.info(
-            "Progress tracker started  run_id=%s  total_items=%s  "
-            "log_every=%s  log_interval=%ss",
+            "Progress tracker started  run_id=%s  total_items=%s  log_every=%s  log_interval=%ss",
             self.run_id,
             self.total_items,
             self.log_every,
@@ -91,8 +89,7 @@ class ProgressTracker:
             if had_data:
                 self.sensors_with_data += 1
             should_log = (
-                self._should_log_locked(time.monotonic())
-                or self.completed == self.total_items
+                self._should_log_locked(time.monotonic()) or self.completed == self.total_items
             )
         if should_log:
             self._log_snapshot(reason="progress")
@@ -103,8 +100,7 @@ class ProgressTracker:
             self.completed += 1
             self.failed += 1
             should_log = (
-                self._should_log_locked(time.monotonic())
-                or self.completed == self.total_items
+                self._should_log_locked(time.monotonic()) or self.completed == self.total_items
             )
         if should_log:
             self._log_snapshot(reason="progress")
@@ -122,9 +118,7 @@ class ProgressTracker:
             or now - self._last_logged_at >= self.log_interval_seconds
         )
 
-    def _log_snapshot(
-        self, force: bool = False, reason: str = "progress"
-    ) -> None:
+    def _log_snapshot(self, force: bool = False, reason: str = "progress") -> None:
         # --- capture values under lock ---
         with self._lock:
             now = time.monotonic()
@@ -139,11 +133,7 @@ class ProgressTracker:
             elapsed = max(0.001, now - self.started_at)
             remaining = max(0, self.total_items - self.completed)
             rate = (self.completed / elapsed) * 60.0
-            eta = (
-                (remaining / self.completed) * elapsed
-                if self.completed > 0
-                else None
-            )
+            eta = (remaining / self.completed) * elapsed if self.completed > 0 else None
 
             snap = {
                 "completed": self.completed,
@@ -164,13 +154,11 @@ class ProgressTracker:
 
         # --- log outside the lock ---
         pct = (
-            snap["completed"] / snap["total"] * 100.0
+            snap["completed"] / snap["total"] * 100.0  # type: ignore[operator]
             if snap["total"]
             else 100.0
         )
-        eta_display = (
-            f'{snap["eta"]:.0f}s' if snap["eta"] is not None else "unknown"
-        )
+        eta_display = f"{snap['eta']:.0f}s" if snap["eta"] is not None else "unknown"
 
         logging.info(
             "Poller progress  run_id=%s  reason=%s  "

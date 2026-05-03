@@ -1,9 +1,9 @@
 # app.py
-import streamlit as st
-import pandas as pd
-from google.cloud import bigquery
-import pydeck as pdk
 import altair as alt
+import pandas as pd
+import pydeck as pdk
+import streamlit as st
+from google.cloud import bigquery
 
 st.set_page_config(
     page_title="Air Quality Pipeline",
@@ -33,14 +33,17 @@ eligible_stations AS (
 )
 """
 
+
 # ── BQ client (uses application-default creds or service account) ──
 @st.cache_resource
 def get_client():
     return bigquery.Client()
 
+
 @st.cache_data(ttl=300)  # cache 5 min
 def run_query(sql: str) -> pd.DataFrame:
     return get_client().query(sql).to_dataframe()
+
 
 def format_age_hours(hours) -> str:
     if pd.isna(hours):
@@ -130,16 +133,17 @@ else:
         ["openaq_age_hours", "weather_age_hours"]
     ].min(axis=1, skipna=True)
 
-    station_fresh["last_data_update_label"] = station_fresh[
-        "last_data_update_age_hours"
-    ].apply(format_age_hours)
+    station_fresh["last_data_update_label"] = station_fresh["last_data_update_age_hours"].apply(
+        format_age_hours
+    )
 
     station_fresh["last_data_update_source"] = station_fresh.apply(
         lambda row: (
             "No data"
             if pd.isna(row["openaq_age_hours"]) and pd.isna(row["weather_age_hours"])
             else "OpenAQ"
-            if pd.isna(row["weather_age_hours"]) or (
+            if pd.isna(row["weather_age_hours"])
+            or (
                 pd.notna(row["openaq_age_hours"])
                 and row["openaq_age_hours"] <= row["weather_age_hours"]
             )
@@ -148,19 +152,17 @@ else:
         axis=1,
     )
 
-    station_fresh["last_data_update_utc_label"] = station_fresh[
-        "last_data_update_utc"
-    ].apply(
+    station_fresh["last_data_update_utc_label"] = station_fresh["last_data_update_utc"].apply(
         lambda ts: ts.strftime("%Y-%m-%d %H:%M UTC") if pd.notna(ts) else "No data"
     )
 
     # Map a color: green = fresh, yellow = partial stale, red = both stale
     def staleness_color(row):
         if row["openaq_stale"] and row["weather_stale"]:
-            return [220, 50, 50, 180]   # red
+            return [220, 50, 50, 180]  # red
         elif row["overall_stale"]:
-            return [240, 180, 0, 180]   # yellow
-        return [0, 180, 80, 180]        # green
+            return [240, 180, 0, 180]  # yellow
+        return [0, 180, 80, 180]  # green
 
     station_fresh["color"] = station_fresh.apply(staleness_color, axis=1)
 
@@ -212,9 +214,7 @@ else:
         sel_station = st.selectbox(
             "Station",
             stations["station_id"],
-            format_func=lambda x: stations.loc[
-                stations.station_id == x, "station_name"
-            ].iloc[0],
+            format_func=lambda x: stations.loc[stations.station_id == x, "station_name"].iloc[0],
         )
 
     with col_poll:
@@ -264,11 +264,7 @@ else:
             st.altair_chart(chart, use_container_width=True)
 
             with st.expander("Weather overlay details"):
-                st.line_chart(
-                    ts.set_index("hour_utc")[
-                        ["wind_speed_10m", "boundary_layer_height"]
-                    ]
-                )
+                st.line_chart(ts.set_index("hour_utc")[["wind_speed_10m", "boundary_layer_height"]])
 
 st.divider()
 
@@ -291,8 +287,7 @@ bars = (
         x=alt.X("run_date:T", title="Date"),
         y=alt.Y("total_records:Q", title="Records written"),
         color=alt.Color("source:N"),
-        tooltip=["run_date:T", "source:N", "total_records:Q",
-                 "successes:Q", "errors:Q"],
+        tooltip=["run_date:T", "source:N", "total_records:Q", "successes:Q", "errors:Q"],
     )
 )
 st.altair_chart(bars, use_container_width=True)
@@ -306,11 +301,16 @@ if station_fresh.empty:
     st.info("No eligible stations to display.")
 else:
     st.dataframe(
-        station_fresh[[
-            "station_id", "station_name",
-            "openaq_age_hours", "weather_age_hours",
-            "openaq_stale", "weather_stale",
-        ]]
+        station_fresh[
+            [
+                "station_id",
+                "station_name",
+                "openaq_age_hours",
+                "weather_age_hours",
+                "openaq_stale",
+                "weather_stale",
+            ]
+        ]
         .sort_values("openaq_age_hours", ascending=False)
         .style.applymap(
             lambda v: "background-color: #ffcccc" if v is True else "",

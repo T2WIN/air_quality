@@ -14,10 +14,12 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, TypedDict
 
 import requests
 from google.cloud import bigquery
+
 from ingestion.shared import (
     DualWindowRateLimiter,
     ProgressTracker,
@@ -169,9 +171,7 @@ class Config:
             project_id=project_id,
             raw_dataset=os.getenv("BQ_RAW_DATASET", "air_quality_raw"),
             weather_table=os.getenv("BQ_WEATHER_TABLE", "weather_forecasts"),
-            station_metadata_table=os.getenv(
-                "BQ_STATION_METADATA_TABLE", "station_metadata"
-            ),
+            station_metadata_table=os.getenv("BQ_STATION_METADATA_TABLE", "station_metadata"),
             bq_location=os.getenv("BQ_LOCATION", "EU"),
             batch_size=int(os.getenv("BATCH_SIZE", "50")),
             forecast_hours=int(os.getenv("FORECAST_HOURS", "48")),
@@ -187,16 +187,12 @@ class Config:
                     1000,
                 )
             ),
-            open_meteo_url=os.getenv(
-                "OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast"
-            ),
+            open_meteo_url=os.getenv("OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast"),
             http_timeout_seconds=int(os.getenv("HTTP_TIMEOUT_SECONDS", "30")),
             max_http_attempts=int(os.getenv("MAX_HTTP_ATTEMPTS", "5")),
             max_batches=parse_optional_int(os.getenv("MAX_BATCHES")),
             progress_log_every=int(os.getenv("PROGRESS_LOG_EVERY", "5")),
-            progress_log_interval_seconds=int(
-                os.getenv("PROGRESS_LOG_INTERVAL_SECONDS", "30")
-            ),
+            progress_log_interval_seconds=int(os.getenv("PROGRESS_LOG_INTERVAL_SECONDS", "30")),
         )
 
 
@@ -205,9 +201,7 @@ class Config:
 # ---------------------------------------------------------------------------
 
 
-def load_station_locations(
-    config: Config, bq_client: bigquery.Client
-) -> list[StationLocation]:
+def load_station_locations(config: Config, bq_client: bigquery.Client) -> list[StationLocation]:
     """Load station coordinates from BigQuery metadata table."""
     query = f"""
         SELECT station_id, latitude, longitude
@@ -215,12 +209,9 @@ def load_station_locations(
         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         ORDER BY station_id
     """
-    rows = [
-        dict(row)
-        for row in bq_client.query(query, location=config.bq_location).result()
-    ]
+    rows = [dict(row) for row in bq_client.query(query, location=config.bq_location).result()]
     logging.info("Loaded station_locations=%d from metadata", len(rows))
-    return rows
+    return rows  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +233,7 @@ def _fetch_batch_with_retry(
     Multiple locations → API returns a list.
     """
 
-    params = {
+    params: dict[str, object] = {
         "latitude": ",".join(f"{lat:.4f}" for lat in latitudes),
         "longitude": ",".join(f"{lon:.4f}" for lon in longitudes),
         "hourly": ",".join(HOURLY_VARIABLES),
@@ -259,7 +250,7 @@ def _fetch_batch_with_retry(
         try:
             response = session.get(
                 config.open_meteo_url,
-                params=params,
+                params=params,  # type: ignore[arg-type]
                 timeout=config.http_timeout_seconds,
             )
 
@@ -281,7 +272,7 @@ def _fetch_batch_with_retry(
 
             response.raise_for_status()
             data = response.json()
-            return [data] if isinstance(data, dict) else data
+            return [data] if isinstance(data, dict) else data  # type: ignore[list-item]
 
         except requests.HTTPError:
             raise
@@ -355,7 +346,7 @@ def parse_batch(
                 vals = hourly.get(var, [])
                 row[var] = vals[j] if j < len(vals) else None
 
-            rows.append(row)
+            rows.append(row)  # type: ignore[arg-type]
 
     return rows
 
@@ -384,7 +375,7 @@ def _append_rows_to_bigquery(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
     )
     load_job = bq_client.load_table_from_json(
-        rows,
+        rows,  # type: ignore[arg-type]
         table_ref,
         job_config=job_config,
         location=config.bq_location,
@@ -433,7 +424,7 @@ def _poll_stations(
             batch = stations[batch_start : batch_start + config.batch_size]
             _poll_batch(
                 config,
-                batch,
+                batch,  # type: ignore[arg-type]
                 rate_limiter,
                 progress,
                 session,
@@ -450,7 +441,7 @@ def _poll_stations(
 
 def _poll_batch(
     config: Config,
-    batch: list[dict],
+    batch: list[dict[str, Any]],
     rate_limiter: DualWindowRateLimiter,
     progress: ProgressTracker,
     session: requests.Session,
@@ -473,9 +464,7 @@ def _poll_batch(
             progress,
             session,
         )
-        rows = parse_batch(
-            api_results, station_ids, latitudes, longitudes, ingested_at, run_id
-        )
+        rows = parse_batch(api_results, station_ids, latitudes, longitudes, ingested_at, run_id)
         result.rows.extend(rows)
         result.stations_with_data += len(api_results)
         result.api_calls += 1
@@ -539,8 +528,8 @@ def _log_run(
     bq_client: bigquery.Client,
     config: Config,
     run_id: str,
-    run_started_at,
-    run_finished_at,
+    run_started_at: datetime,
+    run_finished_at: datetime,
     records_written: int,
     polling: PollingResult,
     status: str,
@@ -671,15 +660,11 @@ def main() -> int:
     """Thin wrapper around run_poller()."""
     try:
         config = Config.from_env()
-        bq_client = bigquery.Client(
-            project=config.project_id, location=config.bq_location
-        )
+        bq_client = bigquery.Client(project=config.project_id, location=config.bq_location)
         summary = run_poller(config, bq_client)
 
         if summary["status"] not in ("success", "empty"):
-            logging.warning(
-                "Weather poller completed with status=%s", summary["status"]
-            )
+            logging.warning("Weather poller completed with status=%s", summary["status"])
             return 1
 
         logging.info("Weather poller finished  summary=%s", summary)

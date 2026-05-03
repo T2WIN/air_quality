@@ -96,9 +96,7 @@ class TestSlidingWindowEviction:
             # Verify a sleep was requested (blocking behavior)
             assert len(sleep_requested) >= 1, "Expected at least one sleep call"
             # The sleep duration should be close to 60s (full window)
-            assert sleep_requested[0] >= 59.0, (
-                f"Expected ~60s wait, got {sleep_requested[0]}"
-            )
+            assert sleep_requested[0] >= 59.0, f"Expected ~60s wait, got {sleep_requested[0]}"
 
 
 class TestCountGreaterThanOne:
@@ -196,8 +194,7 @@ class TestConcurrentAccess:
         # Some acquires should have had to wait (elapsed > 0 due to sleep)
         waited_count = sum(1 for elapsed in acquire_times if elapsed > 0.0)
         assert waited_count > 0, (
-            f"Expected some acquires to wait, but all returned immediately. "
-            f"Times: {acquire_times}"
+            f"Expected some acquires to wait, but all returned immediately. Times: {acquire_times}"
         )
 
 
@@ -231,6 +228,4 @@ class TestWaitCalculation:
         assert len(sleep_durations) >= 1, "Expected at least one sleep call"
         # The wait should be close to the full minute window since all entries
         # were recorded at time 0
-        assert sleep_durations[0] >= 59.0, (
-            f"Expected ~60s wait, got {sleep_durations[0]}"
-        )
+        assert sleep_durations[0] >= 59.0, f"Expected ~60s wait, got {sleep_durations[0]}"

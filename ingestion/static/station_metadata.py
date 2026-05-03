@@ -11,16 +11,14 @@ This is a batch script, not a Cloud Run service.
 Run it once to populate metadata, re-run monthly to refresh.
 """
 
+import json
 import os
 import sys
-import json
 import time
+from datetime import UTC, datetime
+
 import requests
-from datetime import datetime, timezone
-
-from google.cloud import bigquery
-from google.cloud import secretmanager
-
+from google.cloud import bigquery, secretmanager
 
 # ---------------------------------------------------------------------------
 # Config
@@ -39,12 +37,13 @@ DEV_LAT_MIN, DEV_LAT_MAX = 43.5, 46.0
 DEV_LON_MIN, DEV_LON_MAX = 4.0, 5.5
 
 # Will be populated from Secret Manager at runtime
-OPENAQ_API_KEY = None 
+OPENAQ_API_KEY = None
 
 
 # ---------------------------------------------------------------------------
 # Secret Manager
 # ---------------------------------------------------------------------------
+
 
 def get_secret(project_id: str, secret_id: str, version_id: str = "latest") -> str:
     """
@@ -59,6 +58,7 @@ def get_secret(project_id: str, secret_id: str, version_id: str = "latest") -> s
 # ---------------------------------------------------------------------------
 # OpenAQ API
 # ---------------------------------------------------------------------------
+
 
 def fetch_french_locations() -> list[dict]:
     """
@@ -94,7 +94,9 @@ def fetch_french_locations() -> list[dict]:
 
         locations.extend(results)
         found = data.get("meta", {}).get("found", "?")
-        print(f"  Page {page}: {len(results)} locations (running total: {len(locations)}, API says found: {found})")
+        print(
+            f"  Page {page}: {len(results)} locations (running total: {len(locations)}, API says found: {found})"
+        )
 
         # If found is a definite number and we have them all, stop
         if isinstance(found, int) and len(locations) >= found:
@@ -110,6 +112,7 @@ def fetch_french_locations() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Filtering
 # ---------------------------------------------------------------------------
+
 
 def filter_locations(locations: list[dict]) -> list[dict]:
     """
@@ -152,7 +155,7 @@ def filter_locations(locations: list[dict]) -> list[dict]:
         loc["_target_pollutants"] = station_pollutants
         filtered.append(loc)
 
-    print(f"\nFiltering results:")
+    print("\nFiltering results:")
     print(f"  Kept: {len(filtered)}")
     for reason, count in skipped.items():
         if count > 0:
@@ -165,9 +168,10 @@ def filter_locations(locations: list[dict]) -> list[dict]:
 # Row builders
 # ---------------------------------------------------------------------------
 
+
 def build_metadata_rows(locations: list[dict]) -> list[dict]:
     """Build rows for the station_metadata table."""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = []
 
     for loc in locations:
@@ -213,7 +217,7 @@ def build_sensor_rows(locations: list[dict]) -> list[dict]:
     Build rows for the station_sensors table.
     Only includes sensors for target pollutants.
     """
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = []
 
     for loc in locations:
@@ -246,6 +250,7 @@ def build_sensor_rows(locations: list[dict]) -> list[dict]:
 # BigQuery writes
 # ---------------------------------------------------------------------------
 
+
 def write_to_bigquery(
     client: bigquery.Client,
     table_id: str,
@@ -271,48 +276,50 @@ def write_to_bigquery(
 # Summary
 # ---------------------------------------------------------------------------
 
+
 def print_summary(metadata_rows: list[dict], sensor_rows: list[dict]):
     """Print a human-readable summary of what was loaded."""
 
-    print(f"\n{'='*60}")
-    print(f"STATION METADATA SUMMARY")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("STATION METADATA SUMMARY")
+    print(f"{'=' * 60}")
     print(f"Total stations: {len(metadata_rows)}")
 
     # Per-pollutant counts
-    pollutant_counts = {p: 0 for p in sorted(TARGET_POLLUTANTS)}
+    pollutant_counts = dict.fromkeys(sorted(TARGET_POLLUTANTS), 0)
     for row in metadata_rows:
         for p in row["pollutants_available"].split(","):
             if p in pollutant_counts:
                 pollutant_counts[p] += 1
 
-    print(f"\nStations per pollutant:")
+    print("\nStations per pollutant:")
     for p, count in pollutant_counts.items():
         print(f"  {p:>6s}: {count}")
 
     # Coverage tiers
-    has_all_5 = sum(
-        1 for r in metadata_rows
-        if len(r["pollutants_available"].split(",")) == 5
-    )
-    has_4_plus = sum(
-        1 for r in metadata_rows
-        if len(r["pollutants_available"].split(",")) >= 4
-    )
+    has_all_5 = sum(1 for r in metadata_rows if len(r["pollutants_available"].split(",")) == 5)
+    has_4_plus = sum(1 for r in metadata_rows if len(r["pollutants_available"].split(",")) >= 4)
     print(f"\nStations with all 5 pollutants: {has_all_5}")
     print(f"Stations with 4+ pollutants:    {has_4_plus}")
 
     # Dev subset (Rhône valley)
     dev_stations = [
-        r for r in metadata_rows
-        if (r["latitude"] is not None
+        r
+        for r in metadata_rows
+        if (
+            r["latitude"] is not None
             and DEV_LAT_MIN <= r["latitude"] <= DEV_LAT_MAX
-            and DEV_LON_MIN <= r["longitude"] <= DEV_LON_MAX)
+            and DEV_LON_MIN <= r["longitude"] <= DEV_LON_MAX
+        )
     ]
-    print(f"\nRhône valley dev subset ({DEV_LAT_MIN}-{DEV_LAT_MAX}N, {DEV_LON_MIN}-{DEV_LON_MAX}E):")
+    print(
+        f"\nRhône valley dev subset ({DEV_LAT_MIN}-{DEV_LAT_MAX}N, {DEV_LON_MIN}-{DEV_LON_MAX}E):"
+    )
     print(f"  Stations: {len(dev_stations)}")
     for s in dev_stations:
-        print(f"    {s['station_id']:>20s}  {s['station_name']:<30s}  [{s['pollutants_available']}]")
+        print(
+            f"    {s['station_id']:>20s}  {s['station_name']:<30s}  [{s['pollutants_available']}]"
+        )
 
     # Sensors
     print(f"\nTotal sensor rows: {len(sensor_rows)}")
@@ -324,18 +331,19 @@ def print_summary(metadata_rows: list[dict], sensor_rows: list[dict]):
         u = row["parameter_units"]
         units_by_pollutant.setdefault(p, set()).add(u)
 
-    print(f"\nUnits by pollutant (watch for non-µg/m³):")
+    print("\nUnits by pollutant (watch for non-µg/m³):")
     for p in sorted(units_by_pollutant):
         units = units_by_pollutant[p]
         flag = "" if units == {"µg/m³"} else "  ⚠️  NEEDS CONVERSION"
         print(f"  {p:>6s}: {units}{flag}")
 
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     global OPENAQ_API_KEY
@@ -382,7 +390,7 @@ def main():
     print_summary(metadata_rows, sensor_rows)
 
     # Write to BigQuery
-    print(f"\nWriting to BigQuery...")
+    print("\nWriting to BigQuery...")
     client = bigquery.Client(project=PROJECT_ID)
 
     n_metadata = write_to_bigquery(client, metadata_table, metadata_rows)
@@ -391,7 +399,7 @@ def main():
     n_sensors = write_to_bigquery(client, sensors_table, sensor_rows)
     print(f"  station_sensors:  {n_sensors} rows written")
 
-    print(f"\nDone.")
+    print("\nDone.")
 
 
 if __name__ == "__main__":

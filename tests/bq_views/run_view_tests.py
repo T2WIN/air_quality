@@ -16,24 +16,22 @@ import json
 import os
 import random
 import string
-import sys
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from google.cloud import bigquery
 from google.api_core.exceptions import GoogleAPICallError
-
+from google.cloud import bigquery
 
 # =============================================================================
 # Path Constants (module-relative, not CWD-dependent)
 # =============================================================================
 
-TESTS_DIR = Path(__file__).resolve().parent          # tests/bq_views/
-REPO_ROOT = TESTS_DIR.parent.parent                  # repository root
+TESTS_DIR = Path(__file__).resolve().parent  # tests/bq_views/
+REPO_ROOT = TESTS_DIR.parent.parent  # repository root
 
 SCHEMA_PATH = TESTS_DIR / "schemas" / "raw_tables.sql"
 FIXTURES_PATH = TESTS_DIR / "fixtures" / "seed_core.sql"
@@ -75,9 +73,7 @@ class Config:
 
         missing = [var for var in required if not os.environ.get(var)]
         if missing:
-            raise ValueError(
-                f"Missing required environment variables: {', '.join(missing)}"
-            )
+            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
 
         return cls(
             dev_project_id=os.environ["DEV_PROJECT_ID"],
@@ -193,9 +189,7 @@ class BigQueryTestClient:
         """Drop a dataset and all its contents."""
         dataset_ref = f"{self.project_id}.{dataset_id}"
         try:
-            self.client.delete_dataset(
-                dataset_ref, delete_contents=True, not_found_ok=True
-            )
+            self.client.delete_dataset(dataset_ref, delete_contents=True, not_found_ok=True)
         except GoogleAPICallError as e:
             print(f"[warn] Failed to drop dataset {dataset_id}: {e}")
 
@@ -207,7 +201,7 @@ class BigQueryTestClient:
         job.result()
         return job
 
-    def query_to_dataframe(self, sql: str):
+    def query_to_dataframe(self, sql: str) -> "pd.DataFrame":  # type: ignore[name-defined]  # pd imported inside main
         """Execute a query and return results as a pandas DataFrame."""
         job = self.client.query(sql)
         return job.to_dataframe()
@@ -244,7 +238,7 @@ def get_placeholders(config: Config, run: TestRun) -> dict[str, str]:
 
 def generate_run_id() -> str:
     """Generate a unique run ID: timestamp + 4 random lowercase chars."""
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
     return f"{timestamp}_{random_suffix}"
 
@@ -269,9 +263,7 @@ def create_temp_datasets(
     return raw_dataset, staging_dataset, analytics_dataset
 
 
-def drop_temp_datasets(
-    client: BigQueryTestClient, raw: str, staging: str, analytics: str
-) -> None:
+def drop_temp_datasets(client: BigQueryTestClient, raw: str, staging: str, analytics: str) -> None:
     """Drop all temporary datasets."""
     print("[cleanup] Dropping temp datasets...")
     client.drop_dataset(raw)
@@ -286,7 +278,7 @@ def drop_temp_datasets(
 
 def load_view_manifest(manifest_path: Path) -> list[dict[str, Any]]:
     """Load and return the view manifest ordered by stage."""
-    with open(manifest_path, "r") as f:
+    with open(manifest_path) as f:
         manifest = json.load(f)
 
     # Sort by stage number, then by order within stage
@@ -301,15 +293,13 @@ def load_view_manifest(manifest_path: Path) -> list[dict[str, Any]]:
 def load_sql_file(path: Path) -> str:
     """Load SQL from file, return empty string if not found."""
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             return f.read()
     except FileNotFoundError:
         return ""
 
 
-def get_assertion_files(
-    assertions_dir: Path, only_pattern: str | None = None
-) -> list[Path]:
+def get_assertion_files(assertions_dir: Path, only_pattern: str | None = None) -> list[Path]:
     """Get all assertion SQL files, optionally filtered by pattern."""
     if not assertions_dir.exists():
         return []
@@ -349,9 +339,7 @@ def create_views(
         if not sql_template:
             msg = f"View file not found: {file_path}"
             print(f"[views] ERROR {view_name}: {msg}")
-            results.append(
-                TestResult(name=f"view__{view_name}", status="error", error_message=msg)
-            )
+            results.append(TestResult(name=f"view__{view_name}", status="error", error_message=msg))
             break
 
         sql = render_sql_template(sql_template, placeholders)
@@ -362,9 +350,7 @@ def create_views(
         except Exception as e:
             msg = str(e)
             print(f"[views] FAIL {view_name}: {msg}")
-            results.append(
-                TestResult(name=f"view__{view_name}", status="error", error_message=msg)
-            )
+            results.append(TestResult(name=f"view__{view_name}", status="error", error_message=msg))
             break
 
     return results
@@ -388,9 +374,7 @@ def run_assertions(
 
         if not sql_template.strip():
             results.append(
-                TestResult(
-                    name=test_name, status="error", error_message="Empty SQL file"
-                )
+                TestResult(name=test_name, status="error", error_message="Empty SQL file")
             )
             print(f"[assert] ERROR {test_name}: Empty SQL file")
             continue
@@ -405,9 +389,7 @@ def run_assertions(
                 print(f"[assert] PASS {test_name}")
             else:
                 violations = df.head(5).to_dict("records")
-                results.append(
-                    TestResult(name=test_name, status="failed", violations=violations)
-                )
+                results.append(TestResult(name=test_name, status="failed", violations=violations))
                 print(f"[assert] FAIL {test_name}")
                 print(f"         violating_rows={len(df)}")
                 if violations:
@@ -418,9 +400,7 @@ def run_assertions(
                     break
 
         except Exception as e:
-            results.append(
-                TestResult(name=test_name, status="error", error_message=str(e))
-            )
+            results.append(TestResult(name=test_name, status="error", error_message=str(e)))
             print(f"[assert] ERROR {test_name}: {e}")
             if stop_on_first_failure:
                 break
@@ -455,9 +435,7 @@ def execute_setup_phase(
     if not schema_sql_raw.strip():
         msg = f"Schema file missing or empty: {SCHEMA_PATH}"
         print(f"[setup] ERROR: {msg}")
-        results.append(
-            TestResult(name="setup__raw_tables", status="error", error_message=msg)
-        )
+        results.append(TestResult(name="setup__raw_tables", status="error", error_message=msg))
         return results
 
     schema_sql = render_sql_template(schema_sql_raw, placeholders)
@@ -468,9 +446,7 @@ def execute_setup_phase(
     except Exception as e:
         msg = str(e)
         print(f"[setup] ERROR creating raw tables: {msg}")
-        results.append(
-            TestResult(name="setup__raw_tables", status="error", error_message=msg)
-        )
+        results.append(TestResult(name="setup__raw_tables", status="error", error_message=msg))
         return results
 
     # Load and execute fixtures
@@ -479,9 +455,7 @@ def execute_setup_phase(
     if not fixtures_sql_raw.strip():
         msg = f"Fixture file missing or empty: {FIXTURES_PATH}"
         print(f"[setup] ERROR: {msg}")
-        results.append(
-            TestResult(name="setup__seed_core", status="error", error_message=msg)
-        )
+        results.append(TestResult(name="setup__seed_core", status="error", error_message=msg))
         return results
 
     fixtures_sql = render_sql_template(fixtures_sql_raw, placeholders)
@@ -492,9 +466,7 @@ def execute_setup_phase(
     except Exception as e:
         msg = str(e)
         print(f"[setup] ERROR seeding fixtures: {msg}")
-        results.append(
-            TestResult(name="setup__seed_core", status="error", error_message=msg)
-        )
+        results.append(TestResult(name="setup__seed_core", status="error", error_message=msg))
         return results
 
     return results
@@ -513,9 +485,7 @@ def main() -> int:
         default=str(DEFAULT_REPORT_PATH),
         help="Path for JSON report output",
     )
-    parser.add_argument(
-        "--only", default=None, help="Only run tests matching this pattern"
-    )
+    parser.add_argument("--only", default=None, help="Only run tests matching this pattern")
     parser.add_argument(
         "--stop-on-first-failure",
         action="store_true",
@@ -593,9 +563,7 @@ def main() -> int:
                 msg = f"View manifest not found: {MANIFEST_PATH}"
                 print(f"[error] {msg}")
                 all_results.append(
-                    TestResult(
-                        name="setup__manifest", status="error", error_message=msg
-                    )
+                    TestResult(name="setup__manifest", status="error", error_message=msg)
                 )
                 run.setup_error = msg
             else:
@@ -634,7 +602,7 @@ def main() -> int:
 
         # Cleanup logic - respect --keep-datasets-on-failure
         if args.keep_datasets_on_failure and run.has_any_failure:
-            print(f"\n[keep] Datasets preserved for debugging:")
+            print("\n[keep] Datasets preserved for debugging:")
             print(f"       raw: {raw_ds}")
             print(f"       staging: {staging_ds}")
             print(f"       analytics: {analytics_ds}")
